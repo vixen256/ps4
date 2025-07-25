@@ -130,7 +130,7 @@ HOOK (void, LoadAetFrameH, 0x1402CA590, void *data, i32 aetSceneId, const char *
 }
 
 HOOK (void, OpenNpCommerce, 0x1401DEA30) { ShellExecuteA (NULL, "open", "https://store.steampowered.com/app/1761390", NULL, NULL, SW_SHOWNORMAL); }
-HOOK (void, OpenCredits, 0x1401DEA00) { ShellExecuteA (NULL, "open", "https://gamebanana.com/mods/471147", NULL, NULL, SW_SHOWNORMAL); }
+HOOK (void, OpenCredits, 0x1401DEA00) { ShellExecuteA (NULL, "open", "https://divamodarchive.com/post/25", NULL, NULL, SW_SHOWNORMAL); }
 
 extern "C" {
 
