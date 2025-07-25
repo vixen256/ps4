@@ -7,3 +7,5 @@ dll = ["ps4.dll"]
 # 1: Future Sound
 # 2: Colourful tone
 theme = 0
+
+screenshot_loading_screen = true

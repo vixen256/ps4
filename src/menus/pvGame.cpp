@@ -215,7 +215,7 @@ HOOK (void, DisplayLoadingBg, 0x140655B40, u64 a1) {
 }
 
 void
-init () {
+init (bool screenshot_loading_screen) {
 	taskAddition addition;
 	addition.init    = PVGameInit;
 	addition.loop    = PVGameLoop;
@@ -226,8 +226,10 @@ init () {
 
 	INSTALL_HOOK (DrawSprite);
 	INSTALL_HOOK (ProcessRenderCommand);
-	INSTALL_HOOK (PlayLoadingBg);
-	INSTALL_HOOK (DisplayLoadingBg);
+	if (screenshot_loading_screen) {
+		INSTALL_HOOK (PlayLoadingBg);
+		INSTALL_HOOK (DisplayLoadingBg);
+	}
 }
 
 void

@@ -153,8 +153,9 @@ HOOK (void, GetBgmIndexCsResult4, 0x140237730);
 
 __declspec (dllexport) void
 init () {
-	auto file   = fopen ("config.toml", "r");
-	auto config = toml_parse_file (file, NULL, 0);
+	bool screenshot_loading_screen = true;
+	auto file                      = fopen ("config.toml", "r");
+	auto config                    = toml_parse_file (file, NULL, 0);
 	fclose (file);
 	if (!config) {
 		theme = 0;
@@ -162,6 +163,10 @@ init () {
 		auto data = toml_int_in (config, "theme");
 		if (!data.ok) theme = 0;
 		else theme = data.u.i;
+
+		data = toml_bool_in (config, "screenshot_loading_screen");
+		if (!data.ok) screenshot_loading_screen = true;
+		else screenshot_loading_screen = data.u.b;
 	}
 
 	INSTALL_HOOK (ChangeSubGameState);
@@ -239,7 +244,7 @@ init () {
 	result::init ();
 	decoration::init ();
 	pvWatch::init ();
-	pvGame::init ();
+	pvGame::init (screenshot_loading_screen);
 	genericDialog::init ();
 	commonUi::init ();
 	commonMenu::init ();

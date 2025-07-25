@@ -29,7 +29,7 @@ namespace pvWatch {
 void init ();
 } // namespace pvWatch
 namespace pvGame {
-void init ();
+void init (bool);
 void D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext);
 } // namespace pvGame
 namespace genericDialog {
