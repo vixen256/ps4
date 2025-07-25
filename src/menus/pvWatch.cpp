@@ -35,7 +35,7 @@ PVWatchLoop (u64 a1) {
 		previousInputType = input;
 		char buf[128];
 		sprintf (buf, "footer_button_%02d_%02d", currentFooter, (i32)input);
-		diva::AetLayerArgs layer ("AET_NSWGAM_GAME_MAIN", buf, 4, AetAction::LOOP);
+		diva::AetLayerArgs layer ("AET_NSWGAM_GAME_MAIN", buf, 0x1A, AetAction::LOOP);
 		layer.play (&footerButtonId);
 	}
 	return false;
@@ -57,13 +57,13 @@ UpdateFooter (void *frameRateControl) {
 	if (currentFooter > 0) {
 		sprintf (buf, "footer_button_%02d_%02d", currentFooter, (i32)input);
 		diva::AetLayerArgs layer;
-		if (currentFooter == 2) layer.create ("AET_NSWGAM_GAME_MAIN", buf, 4, AetAction::LOOP);
-		else layer.create ("AET_NSWGAM_GAME_MAIN", buf, 4, AetAction::IN_LOOP);
+		if (currentFooter == 2) layer.create ("AET_NSWGAM_GAME_MAIN", buf, 0x1A, AetAction::LOOP);
+		else layer.create ("AET_NSWGAM_GAME_MAIN", buf, 0x1A, AetAction::IN_LOOP);
 		layer.frameRateControl = frameRateControl;
 		layer.play (&footerButtonId);
 	} else {
 		sprintf (buf, "footer_button_%02d_%02d", previousFooter, (i32)input);
-		diva::AetLayerArgs layer ("AET_NSWGAM_GAME_MAIN", buf, 4, AetAction::OUT_ONCE);
+		diva::AetLayerArgs layer ("AET_NSWGAM_GAME_MAIN", buf, 0x1A, AetAction::OUT_ONCE);
 		layer.frameRateControl = frameRateControl;
 		layer.play (&footerButtonId);
 	}
@@ -102,5 +102,7 @@ init () {
 
 	// Stop hiding on pause
 	WRITE_NOP (0x1406448A9, 5);
+	// Move stickers prio from 0x0D to 0x03
+	WRITE_MEMORY (0x1401FCAC3, u8, 0x03);
 }
 } // namespace pvWatch
