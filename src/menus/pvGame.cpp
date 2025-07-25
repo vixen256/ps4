@@ -77,7 +77,7 @@ write_png () {
 	D3D11_MAPPED_SUBRESOURCE map;
 	HRESULT hr = context->Map (screenshotStagingTexture, 0, D3D11_MAP_READ, 0, &map);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] Map %lx\n", hr);
+		printf ("[ps4] Map %lx\n", hr);
 		return;
 	}
 
@@ -116,14 +116,14 @@ realProcessRenderCommand () {
 	render_target->GetResource (&render_resource);
 	hr = render_resource->QueryInterface (&render_texture);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] QueryInterface %lx\n", hr);
+		printf ("[ps4] QueryInterface %lx\n", hr);
 		return;
 	}
 
 	ID3D11ShaderResourceView *shaderReadTexture = nullptr;
 	hr                                          = device->CreateShaderResourceView (render_texture, nullptr, &shaderReadTexture);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] CreateShaderResourceView %lx\n", hr);
+		printf ("[ps4] CreateShaderResourceView %lx\n", hr);
 		return;
 	}
 
@@ -168,17 +168,25 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 	png.opaque  = nullptr;
 	png_image_begin_read_from_file (&png, path);
 
-	if (png.warning_or_error == 2 || png.warning_or_error == 3 || png.width != 1920 || png.height != 1080) return originalPlayLoadingBg (a1);
+	if (png.warning_or_error == 2 || png.warning_or_error == 3) {
+		printf ("[ps4] Failed to load image %s: %s\n", path, png.message);
+		return originalPlayLoadingBg (a1);
+	}
+
+	if (png.width != 1920 || png.height != 1080) return originalPlayLoadingBg (a1);
 	png.format = PNG_FORMAT_RGBA;
 	void *data = malloc (1920 * 1080 * 4);
 
 	png_image_finish_read (&png, nullptr, data, -(1920 * 4), nullptr);
-	if (png.warning_or_error == 2 || png.warning_or_error == 3) return originalPlayLoadingBg (a1);
+	if (png.warning_or_error == 2 || png.warning_or_error == 3) {
+		printf ("[ps4] Failed to load image %s: %s\n", path, png.message);
+		return originalPlayLoadingBg (a1);
+	}
 
 	D3D11_MAPPED_SUBRESOURCE map;
 	HRESULT hr = context->Map (d3dTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] Map Failed %lx\n", hr);
+		printf ("[ps4] Map Failed %lx\n", hr);
 		return originalPlayLoadingBg (a1);
 	}
 
@@ -243,7 +251,7 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	desc.MiscFlags          = 0;
 	hr                      = device->CreateTexture2D (&desc, nullptr, &screenshotTexture);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] CreateTexture2D Failed %lx\n", hr);
+		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
 		return;
 	}
 
@@ -252,7 +260,7 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	hr                  = device->CreateTexture2D (&desc, nullptr, &d3dTexture);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] CreateTexture2D Failed %lx\n", hr);
+		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
 		return;
 	}
 
@@ -261,13 +269,13 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	hr                  = device->CreateTexture2D (&desc, nullptr, &screenshotStagingTexture);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] CreateTexture2D Failed %lx\n", hr);
+		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
 		return;
 	}
 
 	hr = device->CreateUnorderedAccessView (screenshotTexture, nullptr, &shaderReadWriteTexture);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] CreateUnorderedAccessView %lx\n", hr);
+		printf ("[ps4] CreateUnorderedAccessView %lx\n", hr);
 		return;
 	}
 
@@ -287,7 +295,7 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	sampler_desc.MaxLOD         = 0.0;
 	hr                          = device->CreateSamplerState (&sampler_desc, &screenshotSampler);
 	if (FAILED (hr)) {
-		printf ("[Screenshot] CreateSamplerState %lx\n", hr);
+		printf ("[ps4] CreateSamplerState %lx\n", hr);
 		return;
 	}
 
