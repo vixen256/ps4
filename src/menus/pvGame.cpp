@@ -145,7 +145,7 @@ realProcessRenderCommand () {
 }
 
 HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
-	if (gameTexture == nullptr) gameTexture = TextureLoadTex2D (0xA55C0FEE, 6, 1920, 1080, 0, nullptr, 0, false);
+	if (gameTexture == nullptr) gameTexture = TextureLoadTex2D (0xBADC0FEE, 6, 1920, 1080, 0, nullptr, 0, false);
 
 	std::vector<std::string> files;
 	char path[MAX_PATH];
@@ -189,11 +189,11 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 
 	context->CopyResource (gameTexture->dx_texture->texture, d3dTexture);
 
-	*(u32 *)(a1 + 0x7C) = 0xA55C0FEE;
+	*(u32 *)(a1 + 0x7C) = 0xBADC0FEE;
 }
 
 HOOK (void, DisplayLoadingBg, 0x140655B40, u64 a1) {
-	if (*(u32 *)(a1 + 0x7C) == 0xA55C0FEE) {
+	if (*(u32 *)(a1 + 0x7C) == 0xBADC0FEE) {
 		SprArgs args;
 		args.id                     = -1;
 		args.layer                  = 0x17;
