@@ -1050,6 +1050,7 @@ wstringRange::_stringRangeBase (const wchar_t *str);
 
 FUNCTION_PTR_H (void *, GetInputState, i32 a1);
 FUNCTION_PTR_H (bool, IsButtonTapped, void *state, Button button);
+FUNCTION_PTR_H (bool, IsButtonDown, void *state, Button button);
 FUNCTION_PTR_H (void, GetComposition, AetComposition *composition, i32 id);
 FUNCTION_PTR_H (void, PlaySoundEffect, const char *name, f32 volume);
 FUNCTION_PTR_H (u64, GetPvLoadData);

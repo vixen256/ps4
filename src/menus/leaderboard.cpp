@@ -8,7 +8,7 @@ struct Score {
 	i32 rank;
 	i32 score;
 	u64 playerId;
-	string playerName;
+	std::string playerName;
 	i32 playerRank;
 };
 
@@ -18,7 +18,7 @@ public:
 	bool gettingPersonalScore = false;
 
 private:
-	i32 state = 0;
+	i32 state = -1;
 	ELeaderboardDataRequest filter;
 	CCallResult<LeaderboardManager, LeaderboardFindResult_t> m_LeaderboardFindResult;
 	CCallResult<LeaderboardManager, LeaderboardScoresDownloaded_t> m_LeaderboardDownloadResult;
@@ -66,14 +66,15 @@ private:
 			score.playerId   = entry.m_steamIDUser.ConvertToUint64 ();
 			score.playerRank = details[0];
 
-			if (SteamFriends ()->RequestUserInformation (entry.m_steamIDUser, true) == false) score.playerName = SteamFriends ()->GetFriendPersonaName (entry.m_steamIDUser);
+			if (SteamFriends ()->RequestUserInformation (entry.m_steamIDUser, true) == false) score.playerName = std::string (SteamFriends ()->GetFriendPersonaName (entry.m_steamIDUser));
+			else score.playerName = std::string ("");
 
 			this->scores.push_back (score);
 		}
 
 		u64 i = 0;
 		for (; i < this->scores.size (); i++)
-			if (this->scores[i].playerName.length == 0) break;
+			if (this->scores[i].playerName.size () == 0) break;
 
 		if (i == this->scores.size ()) this->state = 2;
 		else this->state = -1;
@@ -94,6 +95,11 @@ public:
 		this->state = -1;
 	}
 
+	bool HasFailed () {
+		if (this->state == 0 || this->state == 1) return true;
+		else return false;
+	}
+
 	std::optional<std::vector<Score>> GetScores () {
 		if (this->state == 2) return this->scores;
 		else return {};
@@ -111,7 +117,7 @@ LeaderboardManager::OnPersonaStateChange (PersonaStateChange_t *ret) {
 
 	u64 i = 0;
 	for (; i < scores.size (); i++)
-		if (this->scores[i].playerName.length == 0) break;
+		if (this->scores[i].playerName.size () == 0) break;
 
 	if (i == this->scores.size ()) this->state = 2;
 	else this->state = -1;
@@ -136,6 +142,7 @@ LeaderboardManager *leaderboardManager         = nullptr;
 LeaderboardManager *personalLeaderboardManager = nullptr;
 
 i32 hiscore_base;
+i32 hiscore_cursor;
 i32 my_hiscore;
 i32 my_hiscore_none;
 i32 hiscore_load;
@@ -145,6 +152,10 @@ i32 arrow_down;
 
 u8 lastDiff;
 i32 lastFilter;
+
+i32 currentSelected;
+i32 currentLocalSelected;
+i32 offset;
 
 bool
 HiScoreLoop (u64 task) {
@@ -164,19 +175,19 @@ HiScoreLoop (u64 task) {
 		personalLeaderboardManager->gettingPersonalScore = true;
 		personalLeaderboardManager->LoadLeaderboard (id, difficulty, 1);
 
-		auto base = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base", 0x13, AetAction::IN_LOOP);
+		AetLayerArgs base ("AET_PS4_GALLERY_MAIN", "hiscore_base", 0x13, AetAction::IN_LOOP);
 		base.play (&hiscore_base);
 
-		auto my = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_my_base", 0x13, AetAction::IN_LOOP);
+		AetLayerArgs my ("AET_PS4_GALLERY_MAIN", "hiscore_my_base", 0x13, AetAction::IN_LOOP);
 		my.play (&my_hiscore);
 
-		auto load = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
+		AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
 		load.play (&hiscore_load);
 
-		auto up = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+		AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
 		up.play (&arrow_up);
 
-		auto down = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
+		AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
 		down.play (&arrow_down);
 
 		char buf[64];
@@ -185,7 +196,7 @@ HiScoreLoop (u64 task) {
 		for (int i = 0; i < 10; i++) {
 			sprintf (buf, "p_hiscore_base%02d_c", i + 1);
 			if (auto layout = comp.find (string (buf))) {
-				auto entry     = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base_03", 0x14, AetAction::NONE);
+				AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", "hiscore_base_03", 0x14, AetAction::NONE);
 				entry.position = layout.value ()->position;
 				entry.play (&hiscore_entries[i]);
 			}
@@ -195,23 +206,46 @@ HiScoreLoop (u64 task) {
 	if (state == 2) {
 		leaderboardManager->Update ();
 		auto scores = leaderboardManager->GetScores ();
-		if (scores.has_value ()) {
+		if (leaderboardManager->HasFailed ()) {
 			StopAet (&hiscore_load);
 			*(i32 *)(task + 0x6C) = 3;
 
-			auto up = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+			AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", "hiscore_my_none", 0x15, AetAction::LOOP);
+			me_none.play (&my_hiscore_none);
+
+			char buf[64];
+			AetComposition comp;
+			GetComposition (&comp, hiscore_base);
+			for (u64 i = 0; i < 10; i++) {
+				sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
+				if (auto layout = comp.find (string (buf))) {
+					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", "hiscore_base_03", 0x14, AetAction::NONE);
+					entry.position = layout.value ()->position;
+					entry.play (&hiscore_entries[i]);
+				}
+			}
+		} else if (scores.has_value ()) {
+			StopAet (&hiscore_load);
+			*(i32 *)(task + 0x6C) = 3;
+
+			if (scores.value ().size () > 0) {
+				AetLayerArgs cursor ("AET_PS4_GALLERY_MAIN", "hiscore_base_cursor", 0x14, AetAction::LOOP);
+				cursor.play (&hiscore_cursor);
+			}
+
+			AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
 			up.play (&arrow_up);
 
 			if (scores.value ().size () > 10) {
-				auto down = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
+				AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
 				down.play (&arrow_down);
 			} else {
-				auto down = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
+				AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
 				down.play (&arrow_down);
 			}
 
 			if (!personalLeaderboardManager->GetScores ().has_value () || personalLeaderboardManager->GetScores ().value ().size () == 0) {
-				auto me_none = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_my_none", 0x15, AetAction::LOOP);
+				AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", "hiscore_my_none", 0x15, AetAction::LOOP);
 				me_none.play (&my_hiscore_none);
 			} else {
 				StopAet (&my_hiscore_none);
@@ -224,8 +258,9 @@ HiScoreLoop (u64 task) {
 				sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
 				if (auto layout = comp.find (string (buf))) {
 					const char *name = scores.value ().size () <= i ? "hiscore_base_03" : i % 2 == 0 ? "hiscore_base_01" : "hiscore_base_02";
-					auto entry       = AetLayerArgs ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
-					entry.position   = layout.value ()->position;
+					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
+					entry.position = layout.value ()->position;
+					entry.color.w  = layout.value ()->opacity;
 					entry.play (&hiscore_entries[i]);
 				}
 			}
@@ -237,12 +272,93 @@ HiScoreLoop (u64 task) {
 			*(i32 *)(task + 0x6C) = 2;
 			leaderboardManager->LoadLeaderboard (id, difficulty, filter);
 			personalLeaderboardManager->LoadLeaderboard (id, difficulty, 1);
-			auto load = AetLayerArgs ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
+			AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
 			load.play (&hiscore_load);
+			StopAet (&hiscore_cursor);
+
+			currentSelected      = 0;
+			currentLocalSelected = 0;
+			offset               = 0;
 		}
 
 		lastDiff   = difficulty;
 		lastFilter = filter;
+
+		auto scores = leaderboardManager->GetScores ();
+		if (scores.has_value ()) {
+			void *inputState = diva::GetInputState (0);
+			if (IsButtonDown (inputState, Button::UP) && currentSelected != 0) {
+				currentSelected -= 1;
+
+				if (currentLocalSelected == 0) {
+					currentLocalSelected = 9;
+					offset -= 10;
+
+					AetLayerArgs base ("AET_PS4_GALLERY_MAIN", "hiscore_base_up", 0x13, AetAction::IN_LOOP);
+					base.play (&hiscore_base);
+
+					if (offset == 0) {
+						AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+						up.play (&arrow_up);
+					} else {
+						AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::SPECIAL_LOOP);
+						up.play (&arrow_up);
+					}
+
+					AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
+					down.play (&arrow_down);
+
+					char buf[64];
+					AetComposition comp;
+					GetComposition (&comp, hiscore_base);
+					for (u64 i = 0; i < 10; i++) {
+						sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
+						if (auto layout = comp.find (string (buf))) {
+							const char *name = scores.value ().size () <= i + offset ? "hiscore_base_03" : i % 2 == 0 ? "hiscore_base_01" : "hiscore_base_02";
+							AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
+							entry.position = layout.value ()->position;
+							entry.color.w  = layout.value ()->opacity;
+							entry.play (&hiscore_entries[i]);
+						}
+					}
+				} else currentLocalSelected -= 1;
+			} else if (IsButtonDown (inputState, Button::DOWN) && currentSelected != scores.value ().size () - 1) {
+				currentSelected += 1;
+
+				if (currentLocalSelected == 9) {
+					currentLocalSelected = 0;
+					offset += 10;
+
+					AetLayerArgs base ("AET_PS4_GALLERY_MAIN", "hiscore_base_down", 0x13, AetAction::IN_LOOP);
+					base.play (&hiscore_base);
+
+					AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::LOOP);
+					up.play (&arrow_up);
+
+					if (offset + 10 >= scores.value ().size () - 1) {
+						AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
+						down.play (&arrow_down);
+					} else {
+						AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::SPECIAL_LOOP);
+						down.play (&arrow_down);
+					}
+
+					char buf[64];
+					AetComposition comp;
+					GetComposition (&comp, hiscore_base);
+					for (u64 i = 0; i < 10; i++) {
+						sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
+						if (auto layout = comp.find (string (buf))) {
+							const char *name = scores.value ().size () <= i + offset ? "hiscore_base_03" : i % 2 == 0 ? "hiscore_base_01" : "hiscore_base_02";
+							AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
+							entry.position = layout.value ()->position;
+							entry.color.w  = layout.value ()->opacity;
+							entry.play (&hiscore_entries[i]);
+						}
+					}
+				} else currentLocalSelected += 1;
+			}
+		}
 	}
 
 	if (state == 1 && leaderboardManager != nullptr) {
@@ -252,7 +368,12 @@ HiScoreLoop (u64 task) {
 		delete leaderboardManager;
 		personalLeaderboardManager = nullptr;
 
+		currentSelected      = 0;
+		currentLocalSelected = 0;
+		offset               = 0;
+
 		StopAet (&hiscore_base);
+		StopAet (&hiscore_cursor);
 		StopAet (&my_hiscore);
 		StopAet (&my_hiscore_none);
 		StopAet (&hiscore_load);
@@ -276,7 +397,7 @@ HiScoreDisplay (u64 task) {
 	if (state == 2 || state == 3) {
 		FontInfo font;
 		GetLangFont (&font, FontId::FNT_36_DIVA_36_38, true);
-		SetFontSize (&font, 20.0, 20.0);
+		SetFontSize (&font, 20.0, 30.0);
 
 		DrawParams params;
 		params.font           = &font;
@@ -286,63 +407,73 @@ HiScoreDisplay (u64 task) {
 		AetComposition comp;
 		GetComposition (&comp, hiscore_base);
 
+		sprintf (buf, "p_hiscore_base%02d_c", currentLocalSelected + 1);
+		auto layer  = aets->find (hiscore_cursor);
+		auto layout = comp.find (string (buf));
+		if (layout.has_value () && layer.has_value ()) {
+			layer.value ()->position = layout.value ()->position;
+			layer.value ()->color.w  = layout.value ()->opacity;
+		}
+
 		for (u64 i = 0; i < 10; i++) {
 			sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
 			auto layer  = aets->find (hiscore_entries[i]);
 			auto layout = comp.find (string (buf));
 			if (!layout.has_value () || !layer.has_value ()) continue;
 			layer.value ()->position = layout.value ()->position;
+			layer.value ()->color.w  = layout.value ()->opacity;
 
 			if (leaderboardManager == nullptr) continue;
 			auto scores = leaderboardManager->GetScores ();
-			if (!scores.has_value () || scores.value ().size () <= i) continue;
-			auto score = scores.value ().at (i);
+			if (!scores.has_value () || scores.value ().size () <= i + offset) continue;
+			auto score = scores.value ().at (i + offset);
 
 			GetSpriteFont (&font, 0xBE37, 38, 46);
+			SetFontSize (&font, 26.0, 30.0);
 			params.colour[0] = 0xFF;
 			params.colour[1] = 0xFF;
 			params.colour[2] = 0xFF;
-			SetFontSize (&font, 26.0, 46.0);
 
 			sprintf (buf, "p_hiscore_score%02lld_rt", i + 1);
 			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y - layout.value ()->height / 5.0);
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 2, "%07d", score.score);
+				DrawTextFmt (&params, 0x28, "%06d", score.score);
 			}
 
 			sprintf (buf, "p_hiscore_grade%02lld_c", i + 1);
 			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x + layout.value ()->width * 1.5, layout.value ()->position.y - layout.value ()->height / 2.0);
+				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 2, "%d", score.rank);
+				DrawTextFmt (&params, 0x28, "%d", score.rank);
 			}
 
 			sprintf (buf, "p_hiscore_rank%02lld_c", i + 1);
 			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width / 2.0, layout.value ()->position.y - layout.value ()->height / 2.5);
+				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 2, "%02d", score.playerRank);
+				DrawTextFmt (&params, 0x28, "%02d", score.playerRank);
 			}
 
 			GetLangFont (&font, FontId::FNT_36_DIVA_36_38, true);
+			SetFontSize (&font, 36.0, 38.0);
 			params.colour[0] = 0x36;
 			params.colour[1] = 0x46;
 			params.colour[2] = 0x49;
 
 			sprintf (buf, "p_hiscore_id%02lld_c", i + 1);
 			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width / 2.0, layout.value ()->position.y - layout.value ()->height / 2.0);
+				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 1, score.playerName.c_str ());
+				DrawTextFmt (&params, 0x28, score.playerName.c_str ());
 			}
 		}
 
@@ -352,24 +483,24 @@ HiScoreDisplay (u64 task) {
 			params.colour[0] = 0xFF;
 			params.colour[1] = 0xFF;
 			params.colour[2] = 0xFF;
-			SetFontSize (&font, 26.0, 46.0);
+			SetFontSize (&font, 26.0, 30.0);
 
 			GetComposition (&comp, my_hiscore);
 
 			if (auto layout = comp.find (string ("p_hiscore_my_score01_rt"))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y - layout.value ()->height / 5.0);
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 2, "%07d", personalLeaderboardManager->GetScores ().value ().front ().score);
+				DrawTextFmt (&params, 0x28, "%06d", personalLeaderboardManager->GetScores ().value ().front ().score);
 			}
 
 			if (auto layout = comp.find (string ("p_hiscore_my_grade01_c"))) {
-				auto position      = Vec2 (layout.value ()->position.x + layout.value ()->width * 1.5, layout.value ()->position.y - layout.value ()->height / 2.0);
+				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 2, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+				DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
 			}
 		}
 	}

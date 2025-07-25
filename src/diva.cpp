@@ -14,6 +14,7 @@ SIG_SCAN (sigOperatorDelete, 0x1409B1E90,
 
 FUNCTION_PTR (void *, GetInputState, 0x1402AC970, i32 a1);
 FUNCTION_PTR (bool, IsButtonTapped, 0x1402AB260, void *state, Button button);
+FUNCTION_PTR (bool, IsButtonDown, 0x1402AB270, void *state, Button button);
 FUNCTION_PTR (void *, CreateAetLayerData, 0x14028D560, AetLayerArgs *args, i32 aetSceneId, const char *layerName, i32 priority, AetAction action);
 FUNCTION_PTR (i32, PlayAetLayer, 0x1402CA220, AetLayerArgs *args, i32 id);
 FUNCTION_PTR (void, GetComposition, 0x1402CA670, AetComposition *composition, i32 id);
