@@ -13,6 +13,14 @@ struct Vec2 {
 		this->x = x;
 		this->y = y;
 	}
+
+	Vec2 operator+ (Vec2 other) { return Vec2 (this->x + other.x, this->y + other.y); }
+	Vec2 operator- (Vec2 other) { return Vec2 (this->x - other.x, this->y - other.y); }
+	Vec2 operator* (Vec2 other) { return Vec2 (this->x * other.x, this->y * other.y); }
+	Vec2 operator/ (Vec2 other) { return Vec2 (this->x / other.x, this->y / other.y); }
+	Vec2 operator+ (f32 offset) { return Vec2 (this->x + offset, this->y + offset); }
+	Vec2 operator* (f32 scale) { return Vec2 (this->x * scale, this->y * scale); }
+	Vec2 operator/ (f32 scale) { return Vec2 (this->x / scale, this->y / scale); }
 };
 
 struct Vec3 {
@@ -33,6 +41,11 @@ struct Vec3 {
 	}
 
 	Vec3 operator+ (Vec3 other) { return Vec3 (this->x + other.x, this->y + other.y, this->z + other.z); }
+	Vec3 operator- (Vec3 other) { return Vec3 (this->x - other.x, this->y - other.y, this->z - other.z); }
+	Vec3 operator* (Vec3 other) { return Vec3 (this->x * other.x, this->y * other.y, this->z * other.z); }
+	Vec3 operator/ (Vec3 other) { return Vec3 (this->x / other.x, this->y / other.y, this->z / other.z); }
+	Vec3 operator* (f32 scale) { return Vec3 (this->x * scale, this->y * scale, this->z * scale); }
+	Vec3 operator/ (f32 scale) { return Vec3 (this->x / scale, this->y / scale, this->z / scale); }
 };
 
 struct Vec4 {
@@ -55,7 +68,8 @@ struct Vec4 {
 		this->w = w;
 	}
 
-	bool contains (Vec2 location) { return location.x > this->x && location.x < this->y && location.y > this->z && location.y < this->w; }
+	bool contains (Vec2 location) { return location.x > this->x && location.x < this->z && location.y > this->y && location.y < this->w; }
+	Vec4 operator* (f32 scale) { return Vec4 (this->x * scale, this->y * scale, this->z * scale, this->w * scale); }
 };
 
 FUNCTION_PTR_H (void *, operatorNew, u64);
@@ -157,14 +171,19 @@ struct list {
 };
 
 template <typename K, typename V>
+struct pair {
+	K key;
+	V value;
+};
+
+template <typename K, typename V>
 struct mapElement {
 	mapElement<K, V> *left;
 	mapElement<K, V> *parent;
 	mapElement<K, V> *right;
 	bool isBlack;
 	bool isNull;
-	alignas (8) K key;
-	V value;
+	pair<K, V> pair;
 
 	mapElement<K, V> *next () {
 		auto ptr = this;
@@ -179,6 +198,10 @@ struct mapElement {
 		}
 		return ptr;
 	}
+
+	K *key () { return &this->pair.key; }
+
+	V *value () { return &this->pair.value; }
 };
 
 template <typename K, typename V>
@@ -205,9 +228,9 @@ struct map {
 	std::optional<V *> find (K key) {
 		auto ptr = this->root->parent;
 		while (!ptr->isNull)
-			if (key == ptr->key) return std::optional (&ptr->value);
-			else if (key > ptr->key) ptr = ptr->right;
-			else if (key < ptr->key) ptr = ptr->left;
+			if (key == ptr->pair.key) return std::optional (ptr->value ());
+			else if (key > ptr->pair.key) ptr = ptr->right;
+			else if (key < ptr->pair.key) ptr = ptr->left;
 		return std::nullopt;
 	}
 
@@ -833,8 +856,41 @@ enum resolutionMode : u32 {
 	RESOLUTION_MODE_MAX           = 0x21,
 };
 
+enum class FontId {
+	CMN_10X16 = 0,
+	CMN_NUM12X16,
+	CMN_NUM14X18,
+	CMN_NUM14X20,
+	CMN_NUM20X26,
+	CMN_NUM20X22,
+	CMN_NUM22X22,
+	CMN_NUM22X24,
+	CMN_NUM24X30,
+	CMN_NUM26X24,
+	CMN_NUM28X40,
+	CMN_NUM28X40_GOLD,
+	CMN_NUM34X32,
+	CMN_NUM40X52,
+	CMN_NUM56X46,
+	CMN_ASC12X18,
+	FNT_36_DIVA_36_38_24,
+	BOLD36_DIVA_36_38_24,
+	FNT_36_DIVA_36_38,
+	BOLD36_DIVA_36_38,
+	FNT_36CN_DIVA_36_38,
+	BOLD36CN_DIVA_36_38,
+	FNT_36CN2_DIVA_36_38,
+	BOLD36CN2_DIVA_36_38,
+	FNT_36KR_DIVA_36_38,
+	BOLD36KR_DIVA_36_38,
+	FNT_36LATIN9_DIVA_36_38_24,
+	BOLD36LATIN9_DIVA_36_38_24,
+	FNT_36LATIN9_DIVA_36_38,
+	BOLD36LATIN9_DIVA_36_38,
+};
+
 struct FontInfo {
-	u32 fontId;
+	FontId fontId;
 	void *rawfont;
 	i32 sprId;
 	i32 unk_0x14;
@@ -1012,6 +1068,9 @@ std::optional<PvDbEntry *> getPvDbEntry (i32 id);
 Vec4 getPlaceholderRect (AetLayoutData layer);
 Vec2 getClickedPos (void *inputState);
 void StopAet (i32 *id);
+void drawTextAtPlaceholder (AetLayoutData *placeholder, DrawParams *params, i32 flags, const char *text);
+void drawTextAtPlaceholderCenter (AetLayoutData *placeholder, DrawParams *params, const char *text);
+void drawTextAtPlaceholderCenterShadow (AetLayoutData *placeholder, DrawParams *params, const char *text);
 void addTaskAddition (const char *name, taskAddition addition);
 void init ();
 } // namespace diva
