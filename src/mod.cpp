@@ -248,6 +248,7 @@ init () {
 	genericDialog::init ();
 	commonUi::init ();
 	commonMenu::init ();
+	leaderboard::init ();
 }
 
 SIG_SCAN_STRING (sigPvDbSwitch, "pv_db_switch.txt");

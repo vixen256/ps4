@@ -75,7 +75,6 @@ struct Vec4 {
 FUNCTION_PTR_H (void *, operatorNew, u64);
 FUNCTION_PTR_H (void *, operatorDelete, void *);
 struct string;
-FUNCTION_PTR_H (void, FreeString, string *);
 template <typename T>
 T *
 allocate (u64 count) {
@@ -116,6 +115,7 @@ struct string {
 			this->capacity = 15;
 		}
 	}
+
 	string (char *cstr) {
 		u64 len = strlen (cstr);
 		if (len > 15) {
@@ -131,7 +131,12 @@ struct string {
 		}
 	}
 
-	~string () { FreeString (this); }
+	~string () {
+		if (this->capacity > 15) deallocate (this->ptr);
+		this->ptr      = 0;
+		this->length   = 0;
+		this->capacity = 15;
+	}
 
 	bool operator== (string &rhs) {
 		if (!this->c_str () || !rhs.c_str ()) return false;
@@ -1055,6 +1060,12 @@ FUNCTION_PTR_H (bool, IsSurvival);
 FUNCTION_PTR_H (bool, SurvivalCleared);
 FUNCTION_PTR_H (i32, LifeGauge);
 FUNCTION_PTR_H (Vec2 *, UpdateKeyAnm, Vec2 *a1, UpdateKeyAnmData *a2);
+FUNCTION_PTR_H (FontInfo *, GetFont, FontInfo *font, FontId id);
+FUNCTION_PTR_H (FontInfo *, GetLangFont, FontInfo *font, FontId id, bool langSpecific);
+FUNCTION_PTR_H (void, GetSpriteFont, FontInfo *font, i32 sprId, i32 width, i32 height);
+FUNCTION_PTR_H (void, SetFontSize, FontInfo *font, f32 width, f32 height);
+FUNCTION_PTR_H (void, DrawTextA, DrawParams *params, u32 flags, const char *text);
+FUNCTION_PTR_H (void, DrawTextFmt, DrawParams *params, u32 flags, const char *fmt, ...);
 FUNCTION_PTR_H (SprArgs *, DrawSpr, SprArgs *args);
 FUNCTION_PTR_H (Texture *, TextureLoadTex2D, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
 
@@ -1068,9 +1079,6 @@ std::optional<PvDbEntry *> getPvDbEntry (i32 id);
 Vec4 getPlaceholderRect (AetLayoutData layer);
 Vec2 getClickedPos (void *inputState);
 void StopAet (i32 *id);
-void drawTextAtPlaceholder (AetLayoutData *placeholder, DrawParams *params, i32 flags, const char *text);
-void drawTextAtPlaceholderCenter (AetLayoutData *placeholder, DrawParams *params, const char *text);
-void drawTextAtPlaceholderCenterShadow (AetLayoutData *placeholder, DrawParams *params, const char *text);
 void addTaskAddition (const char *name, taskAddition addition);
 void init ();
 } // namespace diva

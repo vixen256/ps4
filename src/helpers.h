@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <steam_api.h>
 #include <toml.h>
 #include <windows.h>
 

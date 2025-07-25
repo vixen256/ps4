@@ -13,7 +13,6 @@ add_project_arguments(
 		'-D_WIN32_WINNT=_WIN32_WINNT_WIN10',
 		'-std=c++20',
 		'-masm=intel',
-		'-Werror',
 	),
 	language: 'cpp',
 )
@@ -31,17 +30,20 @@ add_project_link_arguments(
 minhook = subproject('minhook')
 tomlc99 = subproject('tomlc99')
 libpng = subproject('libpng', default_options: ['default_library=static'])
+steam = cpp.find_library('steam_api64', dirs: join_paths(meson.current_source_dir(), 'steam/lib'))
 
 library(
 	'ps4',
 	include_directories: [
 		'src',
+		'steam',
 	],
 	cpp_pch : 'src/helpers.h',
 	dependencies : [
 		minhook.get_variable('minhook_dep'),
 		tomlc99.get_variable('tomlc99_dep'),
 		libpng.get_variable('libpng_dep'),
+		steam
 	],
 	sources : [
 		'src/mod.cpp',
@@ -64,6 +66,7 @@ library(
 		'src/menus/genericDialog.asm',
 		'src/menus/commonUi.cpp',
 		'src/menus/commonMenu.cpp',
+		'src/menus/leaderboard.cpp',
 	],
 	name_prefix: ''
 )

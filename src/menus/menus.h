@@ -41,3 +41,6 @@ void init ();
 namespace commonMenu {
 void init ();
 } // namespace commonMenu
+namespace leaderboard {
+void init ();
+} // namespace leaderboard

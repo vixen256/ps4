@@ -26,7 +26,6 @@ FUNCTION_PTR (void, FreeSubLayers, 0x1401AC240, AetComposition *sublayerData, Ae
 FUNCTION_PTR (void, RealStopAet, 0x1402CA330, i32 *id);
 FUNCTION_PTR (void *, operatorNew, sigOperatorNew (), u64);
 FUNCTION_PTR (void *, operatorDelete, sigOperatorDelete (), void *);
-FUNCTION_PTR (void, FreeString, 0x14014BCD0, string *);
 FUNCTION_PTR (void, GetFSCTRankData, 0x1401E7C60, i32 *fsRank, i32 *ctRank, i32 *fsPoints, i32 *ctPoints);
 FUNCTION_PTR (bool, IsSurvival, 0x14023B6A0);
 FUNCTION_PTR (bool, SurvivalCleared, 0x14023B950);
@@ -34,9 +33,11 @@ FUNCTION_PTR (i32, LifeGauge, 0x14023B890);
 FUNCTION_PTR (Vec2 *, UpdateKeyAnm, 0x14060A840, Vec2 *a1, UpdateKeyAnmData *a2);
 FUNCTION_PTR (FontInfo *, GetFont, 0x1402C4DC0, FontInfo *font, FontId id);
 FUNCTION_PTR (FontInfo *, GetLangFont, 0x1402C4E10, FontInfo *font, FontId id, bool langSpecific);
+FUNCTION_PTR (void, GetSpriteFont, 0x1402C5160, FontInfo *font, i32 sprId, i32 width, i32 height);
 FUNCTION_PTR (void, SetFontSize, 0x1402C5240, FontInfo *font, f32 width, f32 height);
 FUNCTION_PTR (DrawParams *, DefaultDrawParams, 0x1402C53D0, DrawParams *params);
 FUNCTION_PTR (void, DrawTextA, 0x1402C57B0, DrawParams *params, u32 flags, const char *text);
+FUNCTION_PTR (void, DrawTextFmt, 0x1402C56A0, DrawParams *params, u32 flags, const char *fmt, ...);
 FUNCTION_PTR (void, DefaultSprArgs, 0x1405B78D0, SprArgs *args);
 FUNCTION_PTR (SprArgs *, DrawSpr, 0x1405B49C0, SprArgs *args);
 FUNCTION_PTR (Texture *, TextureLoadTex2D, 0x1405F0720, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
@@ -44,68 +45,6 @@ FUNCTION_PTR (Texture *, TextureLoadTex2D, 0x1405F0720, u32 id, i32 format, u32 
 vector<PvDbEntry *> *pvs             = (vector<PvDbEntry *> *)0x141753818;
 vector<AetDbSceneEntry> *aetDbScenes = (vector<AetDbSceneEntry> *)0x1414AB588;
 map<i32, AetData> *aets              = (map<i32, AetData> *)0x1414AB448;
-
-void
-drawTextAtPlaceholder (AetLayoutData *placeholder, DrawParams *params, i32 flags, const char *text) {
-	auto height = placeholder->height;
-	if (placeholder->resolutionMode == RESOLUTION_MODE_HD) height /= 1.5;
-	SetFontSize (params->font, params->font->size.x, height);
-
-	auto position       = Vec2 (placeholder->position.x, placeholder->position.y);
-	params->lineOrigin  = position;
-	params->textCurrent = position;
-	params->colour[3]   = placeholder->opacity * 0xFF;
-	diva::DrawTextA (params, flags, text);
-}
-
-void
-drawTextAtPlaceholderCenter (AetLayoutData *placeholder, DrawParams *params, const char *text) {
-	auto height = placeholder->height;
-	if (placeholder->resolutionMode == RESOLUTION_MODE_HD) height /= 1.5;
-	SetFontSize (params->font, params->font->size.x, height);
-
-	auto length    = placeholder->position.x - placeholder->width;
-	auto fontWidth = params->font->size.x;
-	if (strlen (text) >= length / fontWidth) SetFontSize (params->font, length * fontWidth / strlen (text), params->font->size.y);
-
-	auto position       = Vec2 (placeholder->position.x + placeholder->width / 2.0, placeholder->position.y + placeholder->height / 2.0);
-	params->lineOrigin  = position;
-	params->textCurrent = position;
-	params->colour[3]   = placeholder->opacity * 0xFF;
-	diva::DrawTextA (params, 0x28, text);
-
-	if (params->font->size.x != fontWidth) SetFontSize (params->font, fontWidth, params->font->size.y);
-}
-
-void
-drawTextAtPlaceholderCenterShadow (AetLayoutData *placeholder, DrawParams *params, const char *text) {
-	auto height = placeholder->height;
-	if (placeholder->resolutionMode == RESOLUTION_MODE_HD) height /= 1.5;
-	SetFontSize (params->font, params->font->size.x, height);
-
-	auto length    = placeholder->position.x - placeholder->width;
-	auto fontWidth = params->font->size.x;
-	if (strlen (text) >= length / fontWidth) SetFontSize (params->font, length * fontWidth / strlen (text), params->font->size.y);
-
-	auto position     = Vec2 (placeholder->position.x + placeholder->width / 2.0, placeholder->position.y + placeholder->height / 2.0);
-	params->colour[3] = placeholder->opacity * 0xFF;
-	u8 colour[4];
-	memcpy (colour, params->colour, sizeof (params->colour));
-
-	params->lineOrigin  = position + 2;
-	params->textCurrent = position + 2;
-	params->colour[0]   = 0;
-	params->colour[1]   = 0;
-	params->colour[2]   = 0;
-	diva::DrawTextA (params, 0x28, text);
-
-	params->lineOrigin  = position;
-	params->textCurrent = position;
-	memcpy (params->colour, colour, sizeof (params->colour));
-	diva::DrawTextA (params, 0x28, text);
-
-	if (params->font->size.x != fontWidth) SetFontSize (params->font, fontWidth, params->font->size.x);
-}
 
 FontInfo::FontInfo () {
 	memset (this, 0, sizeof (FontInfo));
