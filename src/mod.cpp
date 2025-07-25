@@ -151,7 +151,8 @@ HOOK (void, GetBgmIndexCsResult2, 0x140237B1F);
 HOOK (void, GetBgmIndexCsResult3, 0x140237DFC);
 HOOK (void, GetBgmIndexCsResult4, 0x140237730);
 
-__declspec (dllexport) void init () {
+__declspec (dllexport) void
+init () {
 	auto file   = fopen ("config.toml", "r");
 	auto config = toml_parse_file (file, NULL, 0);
 	fclose (file);
@@ -258,7 +259,8 @@ SIG_SCAN_STRING (sigCmnWinHelpY, "cmn_win_help_y_inout");
 SIG_SCAN_STRING (sigCmnWinG, "cmn_win_g");
 SIG_SCAN_STRING (sigCmnWinP, "cmn_win_p");
 
-__declspec (dllexport) void preInit () {
+__declspec (dllexport) void
+preInit () {
 	WRITE_NULL (sigPvDbSwitch (), 1);
 	WRITE_NULL (sigMenuTxt1 (), 1);
 	WRITE_NULL (sigMenuTxt2 (), 1);
@@ -274,5 +276,10 @@ __declspec (dllexport) void preInit () {
 
 	WRITE_MEMORY (sigCmnWinG (), char, "cmn_win_m");
 	WRITE_MEMORY (sigCmnWinP (), char, "cmn_win_m");
+}
+
+__declspec (dllexport) void
+D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext) {
+	pvGame::D3DInit (SwapChain, Device, DeviceContext);
 }
 }

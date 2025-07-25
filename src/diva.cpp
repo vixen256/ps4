@@ -32,10 +32,15 @@ FUNCTION_PTR (bool, IsSurvival, 0x14023B6A0);
 FUNCTION_PTR (bool, SurvivalCleared, 0x14023B950);
 FUNCTION_PTR (i32, LifeGauge, 0x14023B890);
 FUNCTION_PTR (Vec2 *, UpdateKeyAnm, 0x14060A840, Vec2 *a1, UpdateKeyAnmData *a2);
+FUNCTION_PTR (void, DefaultSprArgs, 0x1405B78D0, SprArgs *args);
+FUNCTION_PTR (SprArgs *, DrawSpr, 0x1405B49C0, SprArgs *args);
+FUNCTION_PTR (Texture *, TextureLoadTex2D, 0x1405F0720, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
 
 vector<PvDbEntry *> *pvs             = (vector<PvDbEntry *> *)0x141753818;
 vector<AetDbSceneEntry> *aetDbScenes = (vector<AetDbSceneEntry> *)0x1414AB588;
 map<i32, AetData> *aets              = (map<i32, AetData> *)0x1414AB448;
+
+SprArgs::SprArgs () { DefaultSprArgs (this); }
 
 void
 appendThemeInPlace (char *name) {

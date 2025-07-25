@@ -4,3 +4,4 @@ compile_commands.json
 subprojects/minhook
 subprojects/packagecache
 subprojects/tomlc99
+subprojects/libpng-1.6.46

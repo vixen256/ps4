@@ -796,6 +796,183 @@ struct CoverSong {
 	string fileName;
 };
 
+enum resolutionMode : u32 {
+	RESOLUTION_MODE_QVGA          = 0x00,
+	RESOLUTION_MODE_VGA           = 0x01,
+	RESOLUTION_MODE_SVGA          = 0x02,
+	RESOLUTION_MODE_XGA           = 0x03,
+	RESOLUTION_MODE_SXGA          = 0x04,
+	RESOLUTION_MODE_SXGAPlus      = 0x05,
+	RESOLUTION_MODE_UXGA          = 0x06,
+	RESOLUTION_MODE_WVGA          = 0x07,
+	RESOLUTION_MODE_WSVGA         = 0x08,
+	RESOLUTION_MODE_WXGA          = 0x09,
+	RESOLUTION_MODE_FWXGA         = 0x0A,
+	RESOLUTION_MODE_WUXGA         = 0x0B,
+	RESOLUTION_MODE_WQXGA         = 0x0C,
+	RESOLUTION_MODE_HD            = 0x0D,
+	RESOLUTION_MODE_FHD           = 0x0E,
+	RESOLUTION_MODE_UHD           = 0x0F,
+	RESOLUTION_MODE_3KatUHD       = 0x10,
+	RESOLUTION_MODE_3K            = 0x11,
+	RESOLUTION_MODE_QHD           = 0x12,
+	RESOLUTION_MODE_WQVGA         = 0x13,
+	RESOLUTION_MODE_qHD           = 0x14,
+	RESOLUTION_MODE_XGAPlus       = 0x15,
+	RESOLUTION_MODE_1176x664      = 0x16,
+	RESOLUTION_MODE_1200x960      = 0x17,
+	RESOLUTION_MODE_WXGA1280x900  = 0x18,
+	RESOLUTION_MODE_SXGAMinus     = 0x19,
+	RESOLUTION_MODE_FWXGA1366x768 = 0x1A,
+	RESOLUTION_MODE_WXGAPlus      = 0x1B,
+	RESOLUTION_MODE_HDPlus        = 0x1C,
+	RESOLUTION_MODE_WSXGA         = 0x1D,
+	RESOLUTION_MODE_WSXGAPlus     = 0x1E,
+	RESOLUTION_MODE_1920x1440     = 0x1F,
+	RESOLUTION_MODE_QWXGA         = 0x20,
+	RESOLUTION_MODE_MAX           = 0x21,
+};
+
+struct FontInfo {
+	u32 fontId;
+	void *rawfont;
+	i32 sprId;
+	i32 unk_0x14;
+	f32 unk_0x18;
+	f32 unk_0x1C;
+	f32 width;
+	f32 height;
+	f32 unk_0x28;
+	f32 unk_0x2C;
+	Vec2 size;
+	f32 scaledWidth;
+	f32 scaledHeight;
+	f32 unk_0x40;
+	f32 unk_0x44;
+
+	FontInfo ();
+};
+
+struct DrawParams {
+	f32 unk_0x00;
+	u8 colour[4];
+	u8 fillColour[4];
+	bool clip;
+	Vec4 clipData;
+	u32 layer;
+	u32 priority;
+	resolutionMode resolutionMode;
+	u32 unk_0x2C;
+	Vec2 textCurrent;
+	Vec2 lineOrigin;
+	u64 lineLength;
+	FontInfo *font;
+	u16 unk_0x50;
+	u32 unk_0x54;
+	u32 unk_0x58;
+	u32 unk_0x5C;
+	u32 unk_0x60;
+
+	DrawParams ();
+};
+
+enum DirectXTextureFormat : i32 {
+	DX_TEXTURE_FORMAT_R8_UNORM           = 0x00,
+	DX_TEXTURE_FORMAT_R8G8_UNORM         = 0x01,
+	DX_TEXTURE_FORMAT_B5G6R5_UNORM       = 0x02,
+	DX_TEXTURE_FORMAT_R8G8B8A8_UNORM     = 0x03,
+	DX_TEXTURE_FORMAT_B8G8R8A8_UNORM     = 0x04,
+	DX_TEXTURE_FORMAT_R32_FLOAT          = 0x05,
+	DX_TEXTURE_FORMAT_R32G32_FLOAT       = 0x06,
+	DX_TEXTURE_FORMAT_R16G16_FLOAT       = 0x07,
+	DX_TEXTURE_FORMAT_R11G11B10_FLOAT    = 0x08,
+	DX_TEXTURE_FORMAT_R16G16B16A16_FLOAT = 0x09,
+	DX_TEXTURE_FORMAT_BC1_UNORM          = 0x0A,
+	DX_TEXTURE_FORMAT_BC2_UNORM          = 0x0B,
+	DX_TEXTURE_FORMAT_BC3_UNORM          = 0x0C,
+	DX_TEXTURE_FORMAT_BC4_UNORM          = 0x0D,
+	DX_TEXTURE_FORMAT_BC5_UNORM          = 0x0E,
+	DX_TEXTURE_FORMAT_BC6H_UF16          = 0x0F,
+	DX_TEXTURE_FORMAT_BC7_UNORM          = 0x10,
+	DX_TEXTURE_FORMAT_R32_TYPELESS       = 0x11,
+	DX_TEXTURE_FORMAT_B8G8R8X8_TYPELESS  = 0x12,
+	DX_TEXTURE_FORMAT_UNKNOWN            = 0x13,
+	DX_TEXTURE_FORMAT_MAX                = 0x14,
+};
+
+struct DirectXTexture {
+	i32 ref_count;
+	DirectXTexture *free_next;
+	ID3D11Texture2D *texture;
+	ID3D11ShaderResourceView *resource_view;
+	DirectXTextureFormat format;
+	DirectXTextureFormat internal_format;
+	i32 flags;
+	i32 width;
+	i32 height;
+	i32 mip_levels;
+};
+
+struct Texture {
+	i32 ref_count;
+	i32 id;
+	i32 flags;
+	i16 width;
+	i16 height;
+	u32 target;
+	u32 format;
+	i32 max_mipmap;
+	i32 size;
+	i32 unk_0x20;
+	DirectXTexture *dx_texture;
+};
+
+struct mat4 {
+	Vec4 x;
+	Vec4 y;
+	Vec4 z;
+	Vec4 w;
+};
+
+struct SprArgs {
+	u32 kind;
+	i32 id;
+	u8 color[4];
+	i32 attr;
+	i32 blend;
+	i32 index;
+	i32 priority;
+	i32 layer;
+	resolutionMode resolution_mode_screen;
+	resolutionMode resolution_mode_sprite;
+	Vec3 center;
+	Vec3 trans;
+	Vec3 scale;
+	Vec3 rot;
+	Vec2 skew_angle;
+	mat4 mat;
+	Texture *texture;
+	i32 shader;
+	i32 field_AC;
+	mat4 transform;
+	bool field_F0;
+	void *vertex_array;
+	size_t num_vertex;
+	i32 field_108;
+	void *field_110;
+	bool set_viewport;
+	Vec4 viewport;
+	u32 flags;
+	Vec2 sprite_size;
+	i32 field_138;
+	Vec2 texture_pos;
+	Vec2 texture_size;
+	SprArgs *next;
+	DirectXTexture *dx_texture;
+
+	SprArgs ();
+};
+
 #pragma pack(pop)
 
 extern vector<PvDbEntry *> *pvs;
@@ -822,6 +999,8 @@ FUNCTION_PTR_H (bool, IsSurvival);
 FUNCTION_PTR_H (bool, SurvivalCleared);
 FUNCTION_PTR_H (i32, LifeGauge);
 FUNCTION_PTR_H (Vec2 *, UpdateKeyAnm, Vec2 *a1, UpdateKeyAnmData *a2);
+FUNCTION_PTR_H (SprArgs *, DrawSpr, SprArgs *args);
+FUNCTION_PTR_H (Texture *, TextureLoadTex2D, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
 
 void appendThemeInPlace (char *name);
 char *appendTheme (const char *name);
