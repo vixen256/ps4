@@ -168,11 +168,12 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 	png.opaque  = nullptr;
 	png_image_begin_read_from_file (&png, path);
 
-	if (png.width != 1920 || png.height != 1080) return originalPlayLoadingBg (a1);
+	if (png.warning_or_error == 2 || png.warning_or_error == 3 || png.width != 1920 || png.height != 1080) return originalPlayLoadingBg (a1);
 	png.format = PNG_FORMAT_RGBA;
 	void *data = malloc (1920 * 1080 * 4);
 
 	png_image_finish_read (&png, nullptr, data, -(1920 * 4), nullptr);
+	if (png.warning_or_error == 2 || png.warning_or_error == 3) return originalPlayLoadingBg (a1);
 
 	D3D11_MAPPED_SUBRESOURCE map;
 	HRESULT hr = context->Map (d3dTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
