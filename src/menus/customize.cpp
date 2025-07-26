@@ -178,7 +178,6 @@ HOOK (void *, GameOptionsLoop, 0x14066E0E0, u64 a1, i32 a2, bool a3) {
 		if (selectedOption != previousOption) {
 			if (previousOption != -1) playOptionText (previousOption, AetAction::OUT_ONCE);
 			playOptionText (selectedOption, AetAction::IN_LOOP);
-			previousOption = selectedOption;
 
 			if (previousOption != -1) {
 				if (selectedOption == 0) {
@@ -195,13 +194,16 @@ HOOK (void *, GameOptionsLoop, 0x14066E0E0, u64 a1, i32 a2, bool a3) {
 						AetLayerArgs bottomArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_down", 0x10, AetAction::IN_ONCE);
 						bottomArgs.play (&gameOptionsArrowsDownId);
 					}
-				} else {
+				} else if (previousOption > selectedOption) {
 					AetLayerArgs topArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_up", 0x10, AetAction::SPECIAL_LOOP);
 					topArgs.play (&gameOptionsArrowsUpId);
+				} else {
 					AetLayerArgs bottomArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_down", 0x10, AetAction::SPECIAL_LOOP);
 					bottomArgs.play (&gameOptionsArrowsDownId);
 				}
 			}
+
+			previousOption = selectedOption;
 		}
 	}
 	return originalGameOptionsLoop (a1, a2, a3);
