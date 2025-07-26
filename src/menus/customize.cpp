@@ -197,7 +197,11 @@ HOOK (void *, GameOptionsLoop, 0x14066E0E0, u64 a1, i32 a2, bool a3) {
 				} else if (previousOption > selectedOption) {
 					AetLayerArgs topArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_up", 0x10, AetAction::SPECIAL_LOOP);
 					topArgs.play (&gameOptionsArrowsUpId);
+					AetLayerArgs bottomArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_down", 0x10, AetAction::LOOP);
+					bottomArgs.play (&gameOptionsArrowsDownId);
 				} else {
+					AetLayerArgs topArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_up", 0x10, AetAction::LOOP);
+					topArgs.play (&gameOptionsArrowsUpId);
 					AetLayerArgs bottomArgs ("AET_NSWGAM_CUSTOM_MAIN", "setting_menu_bg_arrow_down", 0x10, AetAction::SPECIAL_LOOP);
 					bottomArgs.play (&gameOptionsArrowsDownId);
 				}
