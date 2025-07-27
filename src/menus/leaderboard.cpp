@@ -226,16 +226,14 @@ RankingScroll (const char *prefix, std::vector<T> loaded) {
 			}
 		} else currentLocalSelected += 1;
 
-		sprintf (layer_buf, "%s_base_arrow_u", prefix);
-		AetLayerArgs up ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::LOOP);
+		AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::LOOP);
 		up.play (&arrow_up_id);
 
-		sprintf (layer_buf, "%s_base_arrow_d", prefix);
 		if (currentSelected == loaded.size () - 1) {
-			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_ONCE);
+			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
 			down.play (&arrow_down_id);
 		} else {
-			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::SPECIAL_LOOP);
+			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::SPECIAL_LOOP);
 			down.play (&arrow_down_id);
 		}
 	}
