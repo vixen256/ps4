@@ -60,7 +60,7 @@ PVGameDestroy (u64 a1) {
 }
 
 HOOK (void, DrawSprite, 0x1405B6400, void *a1, void *sprite_manager, SprArgs *args, void *matrix, i32 x_min, i32 y_min, i32 x_max, i32 y_max, void *a9, i32 ****render_ctx) {
-	if (pvGameActive && *(u64 *)(*(u64 *)0x141149808 + 0x48) != 0 && *(i32 *)(*(u64 *)(*(u64 *)0x141149808 + 0x48) + 0x08) == 3 && args->layer > 3 && !takenScreenshot) {
+	if (pvGameActive && *(u64 *)(*(u64 *)0x141149808 + 0x48) != 0 && *(i32 *)(*(u64 *)(*(u64 *)0x141149808 + 0x48) + 0x08) >= 3 && args->layer > 3 && !takenScreenshot) {
 		takenScreenshot   = true;
 		auto instructions = **render_ctx;
 		if (instructions[2] + 1 > instructions[1]) return;
@@ -94,6 +94,8 @@ write_png () {
 	png.format  = PNG_FORMAT_RGBA;
 
 	png_image_write_to_file (&png, path, 0, map.pData, map.RowPitch, nullptr);
+
+	if (png.warning_or_error >= 2) printf ("[ps4] Failed to write image: %s\n", png.message);
 
 	takenScreenshot = false;
 
