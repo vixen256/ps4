@@ -1069,6 +1069,9 @@ FUNCTION_PTR_H (void, DrawTextA, DrawParams *params, u32 flags, const char *text
 FUNCTION_PTR_H (void, DrawTextFmt, DrawParams *params, u32 flags, const char *fmt, ...);
 FUNCTION_PTR_H (SprArgs *, DrawSpr, SprArgs *args);
 FUNCTION_PTR_H (Texture *, TextureLoadTex2D, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
+FUNCTION_PTR_H (void, GetPlayerRank, i32 *exp, i32 *rank);
+FUNCTION_PTR_H (void *, GetSaveData);
+FUNCTION_PTR_H (void *, FindScore, void *saveData, i32 pvId);
 
 void appendThemeInPlace (char *name);
 char *appendTheme (const char *name);

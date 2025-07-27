@@ -49,6 +49,7 @@ library(
 		'src/mod.cpp',
 		'src/SigScan.cpp',
 		'src/diva.cpp',
+		'src/steam.cpp',
 		'src/hooks.asm',
 		'src/menus/exit.cpp',
 		'src/menus/gallery.cpp',

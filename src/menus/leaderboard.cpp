@@ -1,127 +1,10 @@
 #include "diva.h"
-
-using namespace diva;
+#include "steam.h"
 
 namespace leaderboard {
 
-struct Score {
-	i32 rank;
-	i32 score;
-	u64 playerId;
-	std::string playerName;
-	i32 playerRank;
-};
-
-// Kinda annoying interface but steam wants it for callbacks
-class LeaderboardManager {
-public:
-	bool gettingPersonalScore = false;
-
-private:
-	i32 state = -1;
-	ELeaderboardDataRequest filter;
-	CCallResult<LeaderboardManager, LeaderboardFindResult_t> m_LeaderboardFindResult;
-	CCallResult<LeaderboardManager, LeaderboardScoresDownloaded_t> m_LeaderboardDownloadResult;
-	SteamLeaderboard_t leaderboard;
-	std::vector<Score> scores;
-
-	void FindLeaderboardCallback (LeaderboardFindResult_t *res, bool failure) {
-		if (failure || !res->m_bLeaderboardFound) {
-			this->state = 0;
-			return;
-		}
-
-		this->leaderboard = res->m_hSteamLeaderboard;
-		i32 start         = 1;
-		i32 end           = 100;
-		if (this->filter == k_ELeaderboardDataRequestGlobalAroundUser) {
-			if (gettingPersonalScore) {
-				start = 0;
-				end   = 0;
-			} else {
-				start = -4;
-				end   = 5;
-			}
-		}
-		auto callback = SteamUserStats ()->DownloadLeaderboardEntries (this->leaderboard, this->filter, start, end);
-		this->m_LeaderboardDownloadResult.Set (callback, this, &LeaderboardManager::DownloadLeaderboardCallback);
-		this->state = -1;
-	}
-
-	void DownloadLeaderboardCallback (LeaderboardScoresDownloaded_t *res, bool failure) {
-		if (failure) {
-			this->state = 1;
-			return;
-		}
-
-		this->scores.clear ();
-		for (int i = 0; i < res->m_cEntryCount; i++) {
-			LeaderboardEntry_t entry;
-			i32 details[2];
-			SteamUserStats ()->GetDownloadedLeaderboardEntry (res->m_hSteamLeaderboardEntries, i, &entry, details, 2);
-
-			Score score;
-			score.rank       = entry.m_nGlobalRank;
-			score.score      = entry.m_nScore;
-			score.playerId   = entry.m_steamIDUser.ConvertToUint64 ();
-			score.playerRank = details[0];
-
-			if (SteamFriends ()->RequestUserInformation (entry.m_steamIDUser, true) == false) score.playerName = std::string (SteamFriends ()->GetFriendPersonaName (entry.m_steamIDUser));
-			else score.playerName = std::string ("");
-
-			this->scores.push_back (score);
-		}
-
-		u64 i = 0;
-		for (; i < this->scores.size (); i++)
-			if (this->scores[i].playerName.size () == 0) break;
-
-		if (i == this->scores.size ()) this->state = 2;
-		else this->state = -1;
-	}
-
-	STEAM_CALLBACK (LeaderboardManager, OnPersonaStateChange, PersonaStateChange_t);
-
-public:
-	void Update () { SteamAPI_RunCallbacks (); }
-
-	void LoadLeaderboard (i32 id, i32 diff, i32 filter) {
-		this->filter = (ELeaderboardDataRequest)filter;
-		char buf[64];
-		sprintf (buf, "SCORE_%05dD%cA%cMA", id, diff > 0 ? 'X' : 'H', diff == 2 ? 'E' : 'O');
-		auto callback = SteamUserStats ()->FindLeaderboard (buf);
-		this->m_LeaderboardFindResult.Set (callback, this, &LeaderboardManager::FindLeaderboardCallback);
-
-		this->state = -1;
-	}
-
-	bool HasFailed () {
-		if (this->state == 0 || this->state == 1) return true;
-		else return false;
-	}
-
-	std::optional<std::vector<Score>> GetScores () {
-		if (this->state == 2) return this->scores;
-		else return {};
-	}
-};
-
-void
-LeaderboardManager::OnPersonaStateChange (PersonaStateChange_t *ret) {
-	if (this->scores.size () == 0 || (ret->m_nChangeFlags & k_EPersonaChangeName) != k_EPersonaChangeName) return;
-	for (u64 i = 0; i < this->scores.size (); i++) {
-		if (this->scores[i].playerId != ret->m_ulSteamID) continue;
-		this->scores[i].playerName = SteamFriends ()->GetFriendPersonaName (ret->m_ulSteamID);
-		break;
-	}
-
-	u64 i = 0;
-	for (; i < scores.size (); i++)
-		if (this->scores[i].playerName.size () == 0) break;
-
-	if (i == this->scores.size ()) this->state = 2;
-	else this->state = -1;
-}
+using namespace diva;
+using namespace steam;
 
 struct LeaderboardPv {
 	i32 id;
@@ -138,24 +21,303 @@ struct LeaderboardPv {
 	i32 unk_40;
 };
 
-LeaderboardManager *leaderboardManager         = nullptr;
-LeaderboardManager *personalLeaderboardManager = nullptr;
+LeaderboardDownloadManager *leaderboardManager         = nullptr;
+LeaderboardDownloadManager *personalLeaderboardManager = nullptr;
 
-i32 hiscore_base;
-i32 hiscore_cursor;
-i32 my_hiscore;
-i32 my_hiscore_none;
-i32 hiscore_load;
-i32 hiscore_entries[10];
-i32 arrow_up;
-i32 arrow_down;
+i32 base_id;
+i32 cursor_id;
+i32 my_id;
+i32 my_none_id;
+i32 load_id;
+i32 entries_id[10];
+i32 arrow_up_id;
+i32 arrow_down_id;
 
 u8 lastDiff;
 i32 lastFilter;
 
-i32 currentSelected;
-i32 currentLocalSelected;
-i32 offset;
+u64 currentSelected;
+u64 currentLocalSelected;
+u64 offset;
+
+void
+RankingLoadBase (const char *prefix) {
+	char layer_buf[64];
+
+	sprintf (layer_buf, "%s_base", prefix);
+	AetLayerArgs base ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_LOOP);
+	base.play (&base_id);
+
+	sprintf (layer_buf, "%s_my_base", prefix);
+	AetLayerArgs my ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_LOOP);
+	my.play (&my_id);
+
+	AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
+	load.play (&load_id);
+
+	AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+	up.play (&arrow_up_id);
+
+	AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
+	down.play (&arrow_down_id);
+
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+	for (int i = 0; i < 10; i++) {
+		sprintf (buf, "p_%s_base%02d_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			sprintf (layer_buf, "%s_base_03", prefix);
+			AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
+			entry.position = layout.value ()->position;
+			entry.color.w  = layout.value ()->opacity;
+			entry.play (&entries_id[i]);
+		}
+	}
+}
+
+void
+RankingLoadedNone (const char *prefix) {
+	char layer_buf[64];
+
+	StopAet (&load_id);
+
+	sprintf (layer_buf, "%s_my_none", prefix);
+	AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x15, AetAction::LOOP);
+	me_none.play (&my_none_id);
+
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+	for (u64 i = 0; i < 10; i++) {
+		sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			sprintf (layer_buf, "%s_base_03", prefix);
+			AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
+			entry.position = layout.value ()->position;
+			entry.color.w  = layout.value ()->opacity;
+			entry.play (&entries_id[i]);
+		}
+	}
+}
+
+template <typename T>
+void
+RankingLoaded (const char *prefix, std::vector<T> loaded) {
+	char layer_buf[64];
+
+	StopAet (&load_id);
+
+	if (loaded.size () > 0) {
+		AetLayerArgs cursor ("AET_PS4_GALLERY_MAIN", "hiscore_base_cursor", 0x14, AetAction::LOOP);
+		cursor.play (&cursor_id);
+	}
+
+	AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+	up.play (&arrow_up_id);
+
+	if (loaded.size () > 1) {
+		AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
+		down.play (&arrow_down_id);
+	} else {
+		AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
+		down.play (&arrow_down_id);
+	}
+
+	if ((!personalLeaderboardManager->GetScores ().has_value () || personalLeaderboardManager->GetScores ().value ().size () == 0) &&
+	    (!personalLeaderboardManager->GetAchievements ().has_value () || personalLeaderboardManager->GetAchievements ().value ().size () == 0)) {
+		sprintf (layer_buf, "%s_my_none", prefix);
+		AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x15, AetAction::LOOP);
+		me_none.play (&my_none_id);
+	} else {
+		StopAet (&my_none_id);
+	}
+
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+	for (u64 i = 0; i < 10; i++) {
+		sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			sprintf (layer_buf, "%s_%s", prefix, loaded.size () <= i ? "base_03" : i % 2 == 0 ? "base_01" : "base_02");
+			AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
+			entry.position = layout.value ()->position;
+			entry.color.w  = layout.value ()->opacity;
+			entry.play (&entries_id[i]);
+		}
+	}
+}
+
+void
+RankingReload (const char *prefix) {
+	AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
+	load.play (&load_id);
+	StopAet (&cursor_id);
+
+	currentSelected      = 0;
+	currentLocalSelected = 0;
+	offset               = 0;
+}
+
+template <typename T>
+void
+RankingScroll (const char *prefix, std::vector<T> loaded) {
+	char layer_buf[64];
+
+	void *inputState = diva::GetInputState (0);
+	if (IsButtonDown (inputState, Button::UP) && currentSelected != 0) {
+		currentSelected -= 1;
+
+		if (currentLocalSelected == 0) {
+			currentLocalSelected = 9;
+			offset -= 10;
+
+			sprintf (layer_buf, "%s_base_up", prefix);
+			AetLayerArgs base ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_LOOP);
+			base.play (&base_id);
+
+			char buf[64];
+			AetComposition comp;
+			GetComposition (&comp, base_id);
+			for (u64 i = 0; i < 10; i++) {
+				sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
+				if (auto layout = comp.find (string (buf))) {
+					sprintf (layer_buf, "%s_%s", prefix, loaded.size () <= i ? "base_03" : i % 2 == 0 ? "base_01" : "base_02");
+					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
+					entry.position = layout.value ()->position;
+					entry.color.w  = layout.value ()->opacity;
+					entry.play (&entries_id[i]);
+				}
+			}
+		} else currentLocalSelected -= 1;
+
+		if (currentSelected == 0) {
+			AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+			up.play (&arrow_up_id);
+		} else {
+			AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::SPECIAL_LOOP);
+			up.play (&arrow_up_id);
+		}
+
+		AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
+		down.play (&arrow_down_id);
+	} else if (IsButtonDown (inputState, Button::DOWN) && currentSelected != loaded.size () - 1) {
+		currentSelected += 1;
+		if (currentLocalSelected == 9) {
+			currentLocalSelected = 0;
+			offset += 10;
+
+			sprintf (layer_buf, "%s_base_down", prefix);
+			AetLayerArgs base ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_LOOP);
+			base.play (&base_id);
+
+			char buf[64];
+			AetComposition comp;
+			GetComposition (&comp, base_id);
+			for (u64 i = 0; i < 10; i++) {
+				sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
+				if (auto layout = comp.find (string (buf))) {
+					sprintf (layer_buf, "%s_%s", prefix, loaded.size () <= i ? "base_03" : i % 2 == 0 ? "base_01" : "base_02");
+					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
+					entry.position = layout.value ()->position;
+					entry.color.w  = layout.value ()->opacity;
+					entry.play (&entries_id[i]);
+				}
+			}
+		} else currentLocalSelected += 1;
+
+		sprintf (layer_buf, "%s_base_arrow_u", prefix);
+		AetLayerArgs up ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::LOOP);
+		up.play (&arrow_up_id);
+
+		sprintf (layer_buf, "%s_base_arrow_d", prefix);
+		if (currentSelected == loaded.size () - 1) {
+			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_ONCE);
+			down.play (&arrow_down_id);
+		} else {
+			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::SPECIAL_LOOP);
+			down.play (&arrow_down_id);
+		}
+	}
+}
+
+template <typename T>
+void
+RankingDisplay (const char *prefix, T data, u64 i) {
+	FontInfo font;
+	GetSpriteFont (&font, 0xBE37, 38, 46);
+	SetFontSize (&font, 26.0, 30.0);
+
+	DrawParams params;
+	params.font           = &font;
+	params.layer          = 0x16;
+	params.resolutionMode = RESOLUTION_MODE_FHD;
+	params.colour[0]      = 0xFF;
+	params.colour[1]      = 0xFF;
+
+	params.colour[2] = 0xFF;
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+
+	sprintf (buf, "p_%s_grade%02lld_c", prefix, i + 1);
+	if (auto layout = comp.find (string (buf))) {
+		auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+		params.lineOrigin  = position;
+		params.textCurrent = position;
+		params.colour[3]   = layout.value ()->opacity * 0xFF;
+		DrawTextFmt (&params, 0x28, "%d", data.rank);
+	}
+
+	sprintf (buf, "p_%s_rank%02lld_c", prefix, i + 1);
+	if (auto layout = comp.find (string (buf))) {
+		auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+		params.lineOrigin  = position;
+		params.textCurrent = position;
+		params.colour[3]   = layout.value ()->opacity * 0xFF;
+		DrawTextFmt (&params, 0x28, "%02d", data.playerRank);
+	}
+
+	GetLangFont (&font, FontId::FNT_36_DIVA_36_38, true);
+	SetFontSize (&font, 36.0, 38.0);
+	params.colour[0] = 0x36;
+	params.colour[1] = 0x46;
+	params.colour[2] = 0x49;
+
+	sprintf (buf, "p_%s_id%02lld_c", prefix, i + 1);
+	if (auto layout = comp.find (string (buf))) {
+		auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+		params.lineOrigin  = position;
+		params.textCurrent = position;
+		params.colour[3]   = layout.value ()->opacity * 0xFF;
+		DrawTextFmt (&params, 0x28, data.playerName.c_str ());
+	}
+}
+
+void
+RankingStop () {
+	currentSelected      = 0;
+	currentLocalSelected = 0;
+	offset               = 0;
+
+	StopAet (&base_id);
+	StopAet (&cursor_id);
+	StopAet (&my_id);
+	StopAet (&my_none_id);
+	StopAet (&load_id);
+	for (int i = 0; i < 10; i++)
+		StopAet (&entries_id[i]);
+	StopAet (&arrow_up_id);
+	StopAet (&arrow_down_id);
+}
+
+bool
+HiScoreInit (u64 task) {
+	lastDiff   = 0;
+	lastFilter = 0;
+
+	return false;
+}
 
 bool
 HiScoreLoop (u64 task) {
@@ -168,197 +330,45 @@ HiScoreLoop (u64 task) {
 
 	if (state == 3 && leaderboardManager == nullptr) {
 		*(i32 *)(task + 0x6C) = 2;
-		leaderboardManager    = new LeaderboardManager ();
-		leaderboardManager->LoadLeaderboard (id, difficulty, filter);
+		leaderboardManager    = new LeaderboardDownloadManager ();
+		leaderboardManager->DownloadScores (id, difficulty, filter, false);
 
-		personalLeaderboardManager                       = new LeaderboardManager ();
-		personalLeaderboardManager->gettingPersonalScore = true;
-		personalLeaderboardManager->LoadLeaderboard (id, difficulty, 1);
+		personalLeaderboardManager = new LeaderboardDownloadManager ();
+		personalLeaderboardManager->DownloadScores (id, difficulty, 1, true);
 
-		AetLayerArgs base ("AET_PS4_GALLERY_MAIN", "hiscore_base", 0x13, AetAction::IN_LOOP);
-		base.play (&hiscore_base);
+		RankingLoadBase ("hiscore");
 
-		AetLayerArgs my ("AET_PS4_GALLERY_MAIN", "hiscore_my_base", 0x13, AetAction::IN_LOOP);
-		my.play (&my_hiscore);
-
-		AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
-		load.play (&hiscore_load);
-
-		AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
-		up.play (&arrow_up);
-
-		AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
-		down.play (&arrow_down);
-
-		char buf[64];
-		AetComposition comp;
-		GetComposition (&comp, hiscore_base);
-		for (int i = 0; i < 10; i++) {
-			sprintf (buf, "p_hiscore_base%02d_c", i + 1);
-			if (auto layout = comp.find (string (buf))) {
-				AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", "hiscore_base_03", 0x14, AetAction::NONE);
-				entry.position = layout.value ()->position;
-				entry.play (&hiscore_entries[i]);
-			}
-		}
+		lastDiff   = difficulty;
+		lastFilter = filter;
 	}
 
 	if (state == 2) {
 		leaderboardManager->Update ();
 		auto scores = leaderboardManager->GetScores ();
 		if (leaderboardManager->HasFailed ()) {
-			StopAet (&hiscore_load);
 			*(i32 *)(task + 0x6C) = 3;
-
-			AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", "hiscore_my_none", 0x15, AetAction::LOOP);
-			me_none.play (&my_hiscore_none);
-
-			char buf[64];
-			AetComposition comp;
-			GetComposition (&comp, hiscore_base);
-			for (u64 i = 0; i < 10; i++) {
-				sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
-				if (auto layout = comp.find (string (buf))) {
-					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", "hiscore_base_03", 0x14, AetAction::NONE);
-					entry.position = layout.value ()->position;
-					entry.play (&hiscore_entries[i]);
-				}
-			}
+			RankingLoadedNone ("hiscore");
 		} else if (scores.has_value ()) {
-			StopAet (&hiscore_load);
 			*(i32 *)(task + 0x6C) = 3;
-
-			if (scores.value ().size () > 0) {
-				AetLayerArgs cursor ("AET_PS4_GALLERY_MAIN", "hiscore_base_cursor", 0x14, AetAction::LOOP);
-				cursor.play (&hiscore_cursor);
-			}
-
-			AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
-			up.play (&arrow_up);
-
-			if (scores.value ().size () > 10) {
-				AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
-				down.play (&arrow_down);
-			} else {
-				AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
-				down.play (&arrow_down);
-			}
-
-			if (!personalLeaderboardManager->GetScores ().has_value () || personalLeaderboardManager->GetScores ().value ().size () == 0) {
-				AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", "hiscore_my_none", 0x15, AetAction::LOOP);
-				me_none.play (&my_hiscore_none);
-			} else {
-				StopAet (&my_hiscore_none);
-			}
-
-			char buf[64];
-			AetComposition comp;
-			GetComposition (&comp, hiscore_base);
-			for (u64 i = 0; i < 10; i++) {
-				sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
-				if (auto layout = comp.find (string (buf))) {
-					const char *name = scores.value ().size () <= i ? "hiscore_base_03" : i % 2 == 0 ? "hiscore_base_01" : "hiscore_base_02";
-					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
-					entry.position = layout.value ()->position;
-					entry.color.w  = layout.value ()->opacity;
-					entry.play (&hiscore_entries[i]);
-				}
-			}
+			RankingLoaded ("hiscore", scores.value ());
 		}
 	}
 
 	if (state == 3 && leaderboardManager != nullptr) {
+		leaderboardManager->Update ();
 		if (difficulty != lastDiff || filter != lastFilter) {
 			*(i32 *)(task + 0x6C) = 2;
-			leaderboardManager->LoadLeaderboard (id, difficulty, filter);
-			personalLeaderboardManager->LoadLeaderboard (id, difficulty, 1);
-			AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
-			load.play (&hiscore_load);
-			StopAet (&hiscore_cursor);
+			leaderboardManager->DownloadScores (id, difficulty, filter, false);
+			if (difficulty != lastDiff) personalLeaderboardManager->DownloadScores (id, difficulty, 1, true);
 
-			currentSelected      = 0;
-			currentLocalSelected = 0;
-			offset               = 0;
+			RankingReload ("hiscore");
 		}
 
 		lastDiff   = difficulty;
 		lastFilter = filter;
 
 		auto scores = leaderboardManager->GetScores ();
-		if (scores.has_value ()) {
-			void *inputState = diva::GetInputState (0);
-			if (IsButtonDown (inputState, Button::UP) && currentSelected != 0) {
-				currentSelected -= 1;
-
-				if (currentLocalSelected == 0) {
-					currentLocalSelected = 9;
-					offset -= 10;
-
-					AetLayerArgs base ("AET_PS4_GALLERY_MAIN", "hiscore_base_up", 0x13, AetAction::IN_LOOP);
-					base.play (&hiscore_base);
-
-					if (offset == 0) {
-						AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
-						up.play (&arrow_up);
-					} else {
-						AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::SPECIAL_LOOP);
-						up.play (&arrow_up);
-					}
-
-					AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
-					down.play (&arrow_down);
-
-					char buf[64];
-					AetComposition comp;
-					GetComposition (&comp, hiscore_base);
-					for (u64 i = 0; i < 10; i++) {
-						sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
-						if (auto layout = comp.find (string (buf))) {
-							const char *name = scores.value ().size () <= i + offset ? "hiscore_base_03" : i % 2 == 0 ? "hiscore_base_01" : "hiscore_base_02";
-							AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
-							entry.position = layout.value ()->position;
-							entry.color.w  = layout.value ()->opacity;
-							entry.play (&hiscore_entries[i]);
-						}
-					}
-				} else currentLocalSelected -= 1;
-			} else if (IsButtonDown (inputState, Button::DOWN) && currentSelected != scores.value ().size () - 1) {
-				currentSelected += 1;
-
-				if (currentLocalSelected == 9) {
-					currentLocalSelected = 0;
-					offset += 10;
-
-					AetLayerArgs base ("AET_PS4_GALLERY_MAIN", "hiscore_base_down", 0x13, AetAction::IN_LOOP);
-					base.play (&hiscore_base);
-
-					AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::LOOP);
-					up.play (&arrow_up);
-
-					if (offset + 10 >= scores.value ().size () - 1) {
-						AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
-						down.play (&arrow_down);
-					} else {
-						AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::SPECIAL_LOOP);
-						down.play (&arrow_down);
-					}
-
-					char buf[64];
-					AetComposition comp;
-					GetComposition (&comp, hiscore_base);
-					for (u64 i = 0; i < 10; i++) {
-						sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
-						if (auto layout = comp.find (string (buf))) {
-							const char *name = scores.value ().size () <= i + offset ? "hiscore_base_03" : i % 2 == 0 ? "hiscore_base_01" : "hiscore_base_02";
-							AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", name, 0x14, AetAction::NONE);
-							entry.position = layout.value ()->position;
-							entry.color.w  = layout.value ()->opacity;
-							entry.play (&hiscore_entries[i]);
-						}
-					}
-				} else currentLocalSelected += 1;
-			}
-		}
+		if (scores.has_value ()) RankingScroll ("hiscore", scores.value ());
 	}
 
 	if (state == 1 && leaderboardManager != nullptr) {
@@ -368,26 +378,9 @@ HiScoreLoop (u64 task) {
 		delete leaderboardManager;
 		personalLeaderboardManager = nullptr;
 
-		currentSelected      = 0;
-		currentLocalSelected = 0;
-		offset               = 0;
-
-		StopAet (&hiscore_base);
-		StopAet (&hiscore_cursor);
-		StopAet (&my_hiscore);
-		StopAet (&my_hiscore_none);
-		StopAet (&hiscore_load);
-		for (int i = 0; i < 10; i++)
-			StopAet (&hiscore_entries[i]);
-		StopAet (&arrow_up);
-		StopAet (&arrow_down);
+		RankingStop ();
 	}
 
-	return false;
-}
-
-bool
-HiScoreDestroy (u64 task) {
 	return false;
 }
 
@@ -396,19 +389,23 @@ HiScoreDisplay (u64 task) {
 	i32 state = *(i32 *)(task + 0x6C);
 	if (state == 2 || state == 3) {
 		FontInfo font;
-		GetLangFont (&font, FontId::FNT_36_DIVA_36_38, true);
-		SetFontSize (&font, 20.0, 30.0);
+		GetSpriteFont (&font, 0xBE37, 38, 46);
+		SetFontSize (&font, 26.0, 30.0);
 
 		DrawParams params;
 		params.font           = &font;
 		params.layer          = 0x16;
 		params.resolutionMode = RESOLUTION_MODE_FHD;
+		params.colour[0]      = 0xFF;
+		params.colour[1]      = 0xFF;
+		params.colour[2]      = 0xFF;
+
 		char buf[64];
 		AetComposition comp;
-		GetComposition (&comp, hiscore_base);
+		GetComposition (&comp, base_id);
 
-		sprintf (buf, "p_hiscore_base%02d_c", currentLocalSelected + 1);
-		auto layer  = aets->find (hiscore_cursor);
+		sprintf (buf, "p_hiscore_base%02lld_c", currentLocalSelected + 1);
+		auto layer  = aets->find (cursor_id);
 		auto layout = comp.find (string (buf));
 		if (layout.has_value () && layer.has_value ()) {
 			layer.value ()->position = layout.value ()->position;
@@ -417,7 +414,7 @@ HiScoreDisplay (u64 task) {
 
 		for (u64 i = 0; i < 10; i++) {
 			sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
-			auto layer  = aets->find (hiscore_entries[i]);
+			auto layer  = aets->find (entries_id[i]);
 			auto layout = comp.find (string (buf));
 			if (!layout.has_value () || !layer.has_value ()) continue;
 			layer.value ()->position = layout.value ()->position;
@@ -428,12 +425,6 @@ HiScoreDisplay (u64 task) {
 			if (!scores.has_value () || scores.value ().size () <= i + offset) continue;
 			auto score = scores.value ().at (i + offset);
 
-			GetSpriteFont (&font, 0xBE37, 38, 46);
-			SetFontSize (&font, 26.0, 30.0);
-			params.colour[0] = 0xFF;
-			params.colour[1] = 0xFF;
-			params.colour[2] = 0xFF;
-
 			sprintf (buf, "p_hiscore_score%02lld_rt", i + 1);
 			if (auto layout = comp.find (string (buf))) {
 				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
@@ -443,49 +434,13 @@ HiScoreDisplay (u64 task) {
 				DrawTextFmt (&params, 0x28, "%06d", score.score);
 			}
 
-			sprintf (buf, "p_hiscore_grade%02lld_c", i + 1);
-			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
-				params.lineOrigin  = position;
-				params.textCurrent = position;
-				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%d", score.rank);
-			}
-
-			sprintf (buf, "p_hiscore_rank%02lld_c", i + 1);
-			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
-				params.lineOrigin  = position;
-				params.textCurrent = position;
-				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%02d", score.playerRank);
-			}
-
-			GetLangFont (&font, FontId::FNT_36_DIVA_36_38, true);
-			SetFontSize (&font, 36.0, 38.0);
-			params.colour[0] = 0x36;
-			params.colour[1] = 0x46;
-			params.colour[2] = 0x49;
-
-			sprintf (buf, "p_hiscore_id%02lld_c", i + 1);
-			if (auto layout = comp.find (string (buf))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
-				params.lineOrigin  = position;
-				params.textCurrent = position;
-				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, score.playerName.c_str ());
-			}
+			RankingDisplay ("hiscore", score, i);
 		}
 
 		if (personalLeaderboardManager != nullptr && personalLeaderboardManager->GetScores ().has_value () && personalLeaderboardManager->GetScores ().value ().size () == 1) {
-			StopAet (&my_hiscore_none);
-			GetSpriteFont (&font, 0xBE37, 38, 46);
-			params.colour[0] = 0xFF;
-			params.colour[1] = 0xFF;
-			params.colour[2] = 0xFF;
-			SetFontSize (&font, 26.0, 30.0);
+			StopAet (&my_none_id);
 
-			GetComposition (&comp, my_hiscore);
+			GetComposition (&comp, my_id);
 
 			if (auto layout = comp.find (string ("p_hiscore_my_score01_rt"))) {
 				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
@@ -508,13 +463,351 @@ HiScoreDisplay (u64 task) {
 	return false;
 }
 
+bool waiting;
+
+bool
+AchieveInit (u64 task) {
+	lastDiff   = 0;
+	lastFilter = 0;
+	waiting    = true;
+
+	bool isCT                  = *(u8 *)(task + 0x104) == 2;
+	leaderboardManager         = new LeaderboardDownloadManager ();
+	personalLeaderboardManager = new LeaderboardDownloadManager ();
+
+	if (isCT) {
+		leaderboardManager->DownloadCTAchievements (0, 0, false);
+		personalLeaderboardManager->DownloadCTAchievements (0, 1, true);
+	} else {
+		leaderboardManager->DownloadFSAchievements (0, 0, false);
+		personalLeaderboardManager->DownloadFSAchievements (0, 1, true);
+	}
+
+	RankingLoadBase ("achieve");
+	return false;
+}
+
+const i32 songCounts[2][3] = {{128, 128, 55}, {110, 110, 45}};
+
+bool
+AchieveLoop (u64 task) {
+	bool isCT     = *(u8 *)(task + 0x104) == 2;
+	u8 filter     = *(u8 *)(task + 0xD8);
+	u8 difficulty = *(u8 *)(task + 0xDC);
+
+	if (difficulty != lastDiff || filter != lastFilter) {
+		waiting = true;
+		if (isCT) {
+			leaderboardManager->DownloadCTAchievements (difficulty, filter, false);
+			if (difficulty != lastDiff) personalLeaderboardManager->DownloadCTAchievements (difficulty, 1, true);
+		} else {
+			leaderboardManager->DownloadFSAchievements (difficulty, filter, false);
+			if (difficulty != lastDiff) personalLeaderboardManager->DownloadFSAchievements (difficulty, 1, true);
+		}
+
+		RankingReload ("achieve");
+	}
+
+	leaderboardManager->Update ();
+	if (waiting) {
+		auto achievements = leaderboardManager->GetAchievements ();
+		if (leaderboardManager->HasFailed ()) {
+			waiting = false;
+			RankingLoadedNone ("achieve");
+		} else if (achievements.has_value ()) {
+			waiting = false;
+			RankingLoaded ("achieve", achievements.value ());
+		}
+	}
+
+	auto achievements = leaderboardManager->GetAchievements ();
+	if (achievements.has_value ()) RankingScroll ("achieve", achievements.value ());
+
+	lastDiff   = difficulty;
+	lastFilter = filter;
+
+	return false;
+}
+
+bool
+AchieveDisplay (u64 task) {
+	bool isCT     = *(u8 *)(task + 0x104) == 2;
+	u8 difficulty = *(u8 *)(task + 0xDC);
+
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+
+	sprintf (buf, "p_achieve_base%02lld_c", currentLocalSelected + 1);
+	auto layer  = aets->find (cursor_id);
+	auto layout = comp.find (string (buf));
+	if (layout.has_value () && layer.has_value ()) {
+		layer.value ()->position = layout.value ()->position;
+		layer.value ()->color.w  = layout.value ()->opacity;
+	}
+
+	FontInfo font;
+	GetSpriteFont (&font, 0xBE37, 38, 46);
+	SetFontSize (&font, 26.0, 30.0);
+
+	DrawParams params;
+	params.font           = &font;
+	params.layer          = 0x16;
+	params.resolutionMode = RESOLUTION_MODE_FHD;
+	params.colour[0]      = 0xFF;
+	params.colour[1]      = 0xFF;
+	params.colour[2]      = 0xFF;
+
+	for (u64 i = 0; i < 10; i++) {
+		sprintf (buf, "p_achieve_base%02lld_c", i + 1);
+		auto layer  = aets->find (entries_id[i]);
+		auto layout = comp.find (string (buf));
+		if (!layout.has_value () || !layer.has_value ()) continue;
+		layer.value ()->position = layout.value ()->position;
+		layer.value ()->color.w  = layout.value ()->opacity;
+
+		if (leaderboardManager == nullptr) continue;
+		auto achievements = leaderboardManager->GetAchievements ();
+		if (!achievements.has_value () || achievements.value ().size () <= i + offset) continue;
+		auto achievement = achievements.value ().at (i + offset);
+
+		f32 clearPercentage = achievement.combinedPercentage / songCounts[isCT][difficulty];
+		f32 left            = floor (clearPercentage);
+		f32 right           = clearPercentage - left;
+
+		sprintf (buf, "p_achieve_achieve_num01_%02lld_rt", i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 1.5, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%04.0f", right * 10000.0);
+		}
+
+		sprintf (buf, "p_achieve_achieve_num02_%02lld_rt", i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%03.0f", left);
+		}
+
+		RankingDisplay ("achieve", achievement, i);
+	}
+
+	auto personalAchivement = personalLeaderboardManager->GetAchievements ();
+	if (personalAchivement.has_value () && personalAchivement.value ().size () == 1) {
+		StopAet (&my_none_id);
+
+		f32 clearPercentage = personalAchivement.value ().front ().combinedPercentage / songCounts[isCT][difficulty];
+		f32 left            = floor (clearPercentage);
+		f32 right           = clearPercentage - left;
+
+		GetComposition (&comp, my_id);
+		if (auto layout = comp.find (string ("p_achieve_my_achieve_num01_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 1.5, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%04.0f", right * 10000.0);
+		}
+
+		if (auto layout = comp.find (string ("p_achieve_my_achieve_num02_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%03.0f", left);
+		}
+
+		if (auto layout = comp.find (string ("p_achieve_my_grade01_c"))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%d", personalAchivement.value ().front ().rank);
+		}
+	}
+
+	return false;
+}
+
+bool
+AchieveDestroy (u64 task) {
+	delete leaderboardManager;
+	leaderboardManager = nullptr;
+
+	delete leaderboardManager;
+	personalLeaderboardManager = nullptr;
+
+	RankingStop ();
+
+	return false;
+}
+
+bool
+SurvivalInit (u64 task) {
+	lastFilter = 0;
+
+	return false;
+}
+
+bool
+SurvivalLoop (u64 task) {
+	i32 state          = *(i32 *)(task + 0x180);
+	i32 selectedCourse = *(i32 *)(task + 0x188);
+	i32 filter         = *(i32 *)(task + 0x288);
+
+	if (state == 1 && leaderboardManager == nullptr) {
+		leaderboardManager = new LeaderboardDownloadManager ();
+		leaderboardManager->DownloadSurvivalScores (selectedCourse, filter, false);
+
+		personalLeaderboardManager = new LeaderboardDownloadManager ();
+		personalLeaderboardManager->DownloadSurvivalScores (selectedCourse, 1, true);
+
+		RankingLoadBase ("survival");
+
+		lastFilter = filter;
+		waiting    = true;
+	}
+
+	if (leaderboardManager != nullptr) {
+		if (filter != lastFilter) {
+			lastFilter = filter;
+			waiting    = true;
+			leaderboardManager->DownloadSurvivalScores (selectedCourse, filter, false);
+
+			RankingReload ("survival");
+		}
+
+		leaderboardManager->Update ();
+		if (waiting) {
+			auto scores = leaderboardManager->GetScores ();
+			if (leaderboardManager->HasFailed ()) {
+				waiting = false;
+				RankingLoadedNone ("survival");
+			} else if (scores.has_value ()) {
+				waiting = false;
+				RankingLoaded ("survival", scores.value ());
+			}
+		}
+
+		auto scores = leaderboardManager->GetScores ();
+		if (scores.has_value ()) RankingScroll ("survival", scores.value ());
+	}
+
+	if (state == 2 && leaderboardManager != nullptr) {
+		RankingStop ();
+		delete leaderboardManager;
+		leaderboardManager = nullptr;
+
+		delete leaderboardManager;
+		personalLeaderboardManager = nullptr;
+	}
+
+	return false;
+}
+
+bool
+SurvivalDisplay (u64 task) {
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+
+	FontInfo font;
+	GetSpriteFont (&font, 0xBE37, 38, 46);
+	SetFontSize (&font, 26.0, 30.0);
+
+	DrawParams params;
+	params.font           = &font;
+	params.layer          = 0x16;
+	params.resolutionMode = RESOLUTION_MODE_FHD;
+	params.colour[0]      = 0xFF;
+	params.colour[1]      = 0xFF;
+	params.colour[2]      = 0xFF;
+
+	sprintf (buf, "p_survival_base%02lld_c", currentLocalSelected + 1);
+	auto layer  = aets->find (cursor_id);
+	auto layout = comp.find (string (buf));
+	if (layout.has_value () && layer.has_value ()) {
+		layer.value ()->position = layout.value ()->position;
+		layer.value ()->color.w  = layout.value ()->opacity;
+	}
+
+	for (u64 i = 0; i < 10; i++) {
+		sprintf (buf, "p_survival_base%02lld_c", i + 1);
+		auto layer  = aets->find (entries_id[i]);
+		auto layout = comp.find (string (buf));
+		if (!layout.has_value () || !layer.has_value ()) continue;
+		layer.value ()->position = layout.value ()->position;
+		layer.value ()->color.w  = layout.value ()->opacity;
+
+		if (leaderboardManager == nullptr) continue;
+		auto scores = leaderboardManager->GetScores ();
+		if (!scores.has_value () || scores.value ().size () <= i + offset) continue;
+		auto score = scores.value ().at (i + offset);
+
+		sprintf (buf, "p_survival_score%02lld_rt", i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%07d", score.score);
+		}
+
+		RankingDisplay ("survival", score, i);
+	}
+
+	if (personalLeaderboardManager != nullptr) {
+		auto personalScore = personalLeaderboardManager->GetScores ();
+		if (personalScore.has_value () && personalScore.value ().size () == 1) {
+			StopAet (&my_none_id);
+
+			GetComposition (&comp, my_id);
+
+			if (auto layout = comp.find (string ("p_survival_my_score01_rt"))) {
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
+				params.lineOrigin  = position;
+				params.textCurrent = position;
+				params.colour[3]   = layout.value ()->opacity * 0xFF;
+				DrawTextFmt (&params, 0x28, "%07d", personalLeaderboardManager->GetScores ().value ().front ().score);
+			}
+
+			if (auto layout = comp.find (string ("p_survival_my_grade01_c"))) {
+				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+				params.lineOrigin  = position;
+				params.textCurrent = position;
+				params.colour[3]   = layout.value ()->opacity * 0xFF;
+				DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+			}
+		}
+	}
+
+	return false;
+}
+
 void
 init () {
-	taskAddition addition;
-	addition.loop    = HiScoreLoop;
-	addition.destroy = HiScoreDestroy;
-	addition.display = HiScoreDisplay;
-	addTaskAddition ("CS_RANKING_HI_SCORE", addition);
+	taskAddition hiscore;
+	hiscore.init    = HiScoreInit;
+	hiscore.loop    = HiScoreLoop;
+	hiscore.display = HiScoreDisplay;
+	addTaskAddition ("CS_RANKING_HI_SCORE", hiscore);
+
+	taskAddition achieve;
+	achieve.init    = AchieveInit;
+	achieve.loop    = AchieveLoop;
+	achieve.display = AchieveDisplay;
+	achieve.destroy = AchieveDestroy;
+	addTaskAddition ("CS_RANKING_ACHIEVE_RATE", achieve);
+
+	taskAddition survival;
+	survival.init    = SurvivalInit;
+	survival.loop    = SurvivalLoop;
+	survival.display = SurvivalDisplay;
+	addTaskAddition ("CS_RANKING_SURVIVAL", survival);
 }
 
 } // namespace leaderboard

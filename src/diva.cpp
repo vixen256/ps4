@@ -42,6 +42,9 @@ FUNCTION_PTR (void, DrawTextFmt, 0x1402C56A0, DrawParams *params, u32 flags, con
 FUNCTION_PTR (void, DefaultSprArgs, 0x1405B78D0, SprArgs *args);
 FUNCTION_PTR (SprArgs *, DrawSpr, 0x1405B49C0, SprArgs *args);
 FUNCTION_PTR (Texture *, TextureLoadTex2D, 0x1405F0720, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
+FUNCTION_PTR (void, GetPlayerRank, 0x15DE68420, i32 *exp, i32 *rank);
+FUNCTION_PTR (void *, GetSaveData, 0x1401D6510);
+FUNCTION_PTR (void *, FindScore, 0x14E5A32F0, void *saveData, i32 pvId);
 
 vector<PvDbEntry *> *pvs             = (vector<PvDbEntry *> *)0x141753818;
 vector<AetDbSceneEntry> *aetDbScenes = (vector<AetDbSceneEntry> *)0x1414AB588;
