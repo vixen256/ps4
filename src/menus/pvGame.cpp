@@ -18,8 +18,9 @@ ID3D11Texture2D *screenshotStagingTexture         = nullptr;
 ID3D11SamplerState *screenshotSampler             = nullptr;
 ID3D11UnorderedAccessView *shaderReadWriteTexture = nullptr;
 
-ID3D11Texture2D *d3dTexture = nullptr;
-Texture *gameTexture        = nullptr;
+bool screenshotLoadingScreen = true;
+ID3D11Texture2D *d3dTexture  = nullptr;
+Texture *gameTexture         = nullptr;
 
 FUNCTION_PTR (bool, isPractice, 0x1401E7B90);
 
@@ -34,6 +35,7 @@ PVGameInit (u64 a1) {
 		layer.play (&prcInfoId);
 	} else {
 		pvGameActive = true;
+		if (*(u64 *)(*(u64 *)0x141149808 + 0x48) == 0) printf ("[ps4] Couldn't access screenshot hook\n");
 	}
 	return false;
 }
@@ -82,16 +84,23 @@ write_png () {
 	}
 
 	char path[MAX_PATH];
+	sprintf (path, "%s\\screenshots", modDir);
+	CreateDirectoryA (path, nullptr);
+
 	SYSTEMTIME datetime;
 	GetSystemTime (&datetime);
-	wsprintf (path, "%s/screenshots/%d-%d-%dT%02d:%02d:%02d.%03d.png", modDir, datetime.wYear, datetime.wMonth, datetime.wDay, datetime.wHour, datetime.wMinute, datetime.wSecond, datetime.wSecond);
+	sprintf (path, "%s\\screenshots\\%d-%d-%dT%02d_%02d_%02d_%03d.png", modDir, datetime.wYear, datetime.wMonth, datetime.wDay, datetime.wHour, datetime.wMinute, datetime.wSecond,
+	         datetime.wMilliseconds);
 
 	png_image png;
 	memset (&png, 0, sizeof (png_image));
-	png.version = PNG_IMAGE_VERSION;
-	png.width   = 1920;
-	png.height  = 1080;
-	png.format  = PNG_FORMAT_RGBA;
+	png.version          = PNG_IMAGE_VERSION;
+	png.width            = 1920;
+	png.height           = 1080;
+	png.format           = PNG_FORMAT_RGBA;
+	png.opaque           = nullptr;
+	png.flags            = 0;
+	png.colormap_entries = 0;
 
 	png_image_write_to_file (&png, path, 0, map.pData, map.RowPitch, nullptr);
 
@@ -107,7 +116,8 @@ void
 realProcessRenderCommand () {
 	HRESULT hr;
 	ID3D11RenderTargetView *render_target;
-	context->OMGetRenderTargets (1, &render_target, 0);
+	ID3D11DepthStencilView *stencil_view;
+	context->OMGetRenderTargets (1, &render_target, &stencil_view);
 
 	D3D11_RENDER_TARGET_VIEW_DESC render_target_desc;
 	render_target->GetDesc (&render_target_desc);
@@ -129,6 +139,8 @@ realProcessRenderCommand () {
 		return;
 	}
 
+	context->OMSetRenderTargets (0, nullptr, nullptr);
+
 	context->CSSetShader (shader, nullptr, 0);
 	context->CSSetShaderResources (0, 1, &shaderReadTexture);
 	context->CSSetUnorderedAccessViews (0, 1, &shaderReadWriteTexture, nullptr);
@@ -142,6 +154,10 @@ realProcessRenderCommand () {
 	t.detach ();
 
 	render_texture->Release ();
+
+	context->OMSetRenderTargets (1, &render_target, stencil_view);
+
+	stencil_view->Release ();
 	render_target->Release ();
 }
 }
@@ -152,7 +168,7 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 	std::vector<std::string> files;
 	char path[MAX_PATH];
 	WIN32_FIND_DATAA file;
-	sprintf (path, "%s/screenshots/*.png", modDir);
+	sprintf (path, "%s\\screenshots\\*.png", modDir);
 
 	HANDLE handle = FindFirstFileA (path, &file);
 	if (handle == INVALID_HANDLE_VALUE) return originalPlayLoadingBg (a1);
@@ -162,7 +178,7 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 
 	if (files.size () == 0) return originalPlayLoadingBg (a1);
 
-	sprintf (path, "%s/screenshots/%s", modDir, files.at (rand () % files.size ()).c_str ());
+	sprintf (path, "%s\\screenshots\\%s", modDir, files.at (rand () % files.size ()).c_str ());
 
 	png_image png;
 	memset (&png, 0, sizeof (png_image));
@@ -225,13 +241,7 @@ init (bool screenshot_loading_screen) {
 	addTaskAddition ("PVGAME", addition);
 
 	GetCurrentDirectoryA (MAX_PATH, modDir);
-
-	INSTALL_HOOK (DrawSprite);
-	INSTALL_HOOK (ProcessRenderCommand);
-	if (screenshot_loading_screen) {
-		INSTALL_HOOK (PlayLoadingBg);
-		INSTALL_HOOK (DisplayLoadingBg);
-	}
+	screenshotLoadingScreen = screenshot_loading_screen;
 }
 
 void
@@ -259,15 +269,6 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 		return;
 	}
 
-	desc.Usage          = D3D11_USAGE_DYNAMIC;
-	desc.BindFlags      = D3D11_BIND_SHADER_RESOURCE;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	hr                  = device->CreateTexture2D (&desc, nullptr, &d3dTexture);
-	if (FAILED (hr)) {
-		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
-		return;
-	}
-
 	desc.Usage          = D3D11_USAGE_STAGING;
 	desc.BindFlags      = 0;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -275,6 +276,17 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	if (FAILED (hr)) {
 		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
 		return;
+	}
+
+	if (screenshotLoadingScreen) {
+		desc.Usage          = D3D11_USAGE_DYNAMIC;
+		desc.BindFlags      = D3D11_BIND_SHADER_RESOURCE;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		hr                  = device->CreateTexture2D (&desc, nullptr, &d3dTexture);
+		if (FAILED (hr)) {
+			printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
+			return;
+		}
 	}
 
 	hr = device->CreateUnorderedAccessView (screenshotTexture, nullptr, &shaderReadWriteTexture);
@@ -321,5 +333,12 @@ output[dispatchThreadId] = float4(input.SampleLevel(Sampler, float2(dispatchThre
 		return;
 	}
 	device->CreateComputeShader (shaderBlob->GetBufferPointer (), shaderBlob->GetBufferSize (), nullptr, &shader);
+
+	INSTALL_HOOK (DrawSprite);
+	INSTALL_HOOK (ProcessRenderCommand);
+	if (screenshotLoadingScreen) {
+		INSTALL_HOOK (PlayLoadingBg);
+		INSTALL_HOOK (DisplayLoadingBg);
+	}
 }
 } // namespace pvGame
