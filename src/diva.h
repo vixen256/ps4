@@ -138,6 +138,25 @@ struct string {
 		this->capacity = 15;
 	}
 
+	void extend (size_t len) {
+		size_t extension = this->length + 1 + len;
+		if (extension <= this->capacity) return;
+
+		size_t new_capacity = extension | 0x0F;
+		auto old            = this->c_str ();
+		auto new_ptr        = allocate<char> (new_capacity);
+		strcpy (new_ptr, old);
+
+		if (this->capacity > 15) deallocate (this->ptr);
+		this->ptr      = new_ptr;
+		this->capacity = new_capacity;
+	}
+
+	void operator= (const char *rhs) {
+		auto len = strlen (rhs);
+		if (this->capacity <= len) this->extend (len + 1);
+		strcpy (this->c_str (), rhs);
+	}
 	bool operator== (string &rhs) {
 		if (!this->c_str () || !rhs.c_str ()) return false;
 		return strcmp (this->c_str (), rhs.c_str ()) == 0;
@@ -303,10 +322,11 @@ struct _stringRangeBase {
 		end  = 0;
 	}
 	_stringRangeBase (const T *str);
-	_stringRangeBase (const T *str, size_t length) {
+	_stringRangeBase (size_t length) {
+		if (length <= 0) length = 8;
 		data = allocate<T> (length);
 		end  = data + length;
-		memcpy (data, str, length);
+		memset (data, 0, length);
 	}
 };
 using stringRange  = _stringRangeBase<char>;
@@ -704,9 +724,12 @@ struct ModuleData {
 	i32 sort_index;
 	i32 chara;
 	i32 cos;
-	// 0x6C: spr set id
-	// 0x74: sprite id
-	INSERT_PADDING (0x70);
+	INSERT_PADDING (0x5C);
+	u32 sprSetId;
+	i32 unk_0x70;
+	u32 spriteId;
+	i32 unk_0x74;
+	i32 unk_0x78;
 	string name;
 	i32 shop_price;
 	u64 unk_0xA8;
@@ -1034,10 +1057,21 @@ struct SprArgs {
 	SprArgs ();
 };
 
+struct SaveDataModule {
+	i32 unk;
+	i32 moduleId;
+	i32 accessory_head;
+	i32 accessory_face;
+	i32 accessory_chest;
+	i32 accessory_back;
+	i32 hair;
+};
+
 #pragma pack(pop)
 
 extern vector<PvDbEntry *> *pvs;
 extern map<i32, AetData> *aets;
+extern vector<ModuleData> *modules;
 
 using AetComposition = map<string, AetLayoutData>;
 template <>
@@ -1072,6 +1106,14 @@ FUNCTION_PTR_H (Texture *, TextureLoadTex2D, u32 id, i32 format, u32 width, u32 
 FUNCTION_PTR_H (void, GetPlayerRank, i32 *exp, i32 *rank);
 FUNCTION_PTR_H (void *, GetSaveData);
 FUNCTION_PTR_H (void *, FindScore, void *saveData, i32 pvId);
+FUNCTION_PTR_H (void *, FindModule, void *saveData, u32 moduleId);
+FUNCTION_PTR_H (bool, CheckModuleUnlocked, void *moduleSaveData);
+FUNCTION_PTR_H (void, LoadAetSet, i32 id, string *out);
+FUNCTION_PTR_H (bool, LoadAetSetFinish, i32 id);
+FUNCTION_PTR_H (void, LoadSprSet, i32 id, stringRange *out);
+FUNCTION_PTR_H (bool, LoadSprSetFinish, i32 id);
+FUNCTION_PTR_H (void, UnloadAetSet, i32 id);
+FUNCTION_PTR_H (void, UnloadSprSet, i32 id);
 
 void appendThemeInPlace (char *name);
 char *appendTheme (const char *name);

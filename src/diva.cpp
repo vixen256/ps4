@@ -45,10 +45,19 @@ FUNCTION_PTR (Texture *, TextureLoadTex2D, 0x1405F0720, u32 id, i32 format, u32 
 FUNCTION_PTR (void, GetPlayerRank, 0x15DE68420, i32 *exp, i32 *rank);
 FUNCTION_PTR (void *, GetSaveData, 0x1401D6510);
 FUNCTION_PTR (void *, FindScore, 0x14E5A32F0, void *saveData, i32 pvId);
+FUNCTION_PTR (void *, FindModule, 0x1401D5C90, void *saveData, u32 moduleId);
+FUNCTION_PTR (bool, CheckModuleUnlocked, 0x1401DA550, void *moduleSaveData);
+FUNCTION_PTR (void, LoadAetSet, 0x1402C9FA0, i32 id, string *out);
+FUNCTION_PTR (bool, LoadAetSetFinish, 0x1402CA020, i32 id);
+FUNCTION_PTR (void, LoadSprSet, 0x1405B4770, i32 id, stringRange *out);
+FUNCTION_PTR (bool, LoadSprSetFinish, 0x1405B4810, i32 id);
+FUNCTION_PTR (void, UnloadAetSet, 0x1402CA040, i32 id);
+FUNCTION_PTR (void, UnloadSprSet, 0x1405B48B0, i32 id);
 
 vector<PvDbEntry *> *pvs             = (vector<PvDbEntry *> *)0x141753818;
 vector<AetDbSceneEntry> *aetDbScenes = (vector<AetDbSceneEntry> *)0x1414AB588;
 map<i32, AetData> *aets              = (map<i32, AetData> *)0x1414AB448;
+vector<ModuleData> *modules          = (vector<ModuleData> *)0x1416EBEE8;
 
 FontInfo::FontInfo () {
 	memset (this, 0, sizeof (FontInfo));
@@ -209,11 +218,17 @@ AetComposition::~map () {
 
 template <>
 stringRange::_stringRangeBase (const char *str) {
-	stringRange (str, strlen (str));
+	auto length = strlen (str);
+	data        = allocate<char> (length);
+	end         = data + length;
+	memcpy (data, str, length * sizeof (char));
 }
 template <>
 wstringRange::_stringRangeBase (const wchar_t *str) {
-	wstringRange (str, wcslen (str));
+	auto length = wcslen (str);
+	data        = allocate<wchar_t> (length);
+	end         = data + length;
+	memcpy (data, str, length * sizeof (wchar_t));
 }
 
 std::multimap<std::string, taskAddition> taskAdditions;

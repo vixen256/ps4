@@ -266,6 +266,7 @@ PVSelLoop (u64 This) {
 	if (*(u8 *)(0x14CC10480) || !playing) return false;
 
 	auto entry   = getPvDbEntry (*(i32 *)(This + 0x36A30));
+	auto diff    = *(i32 *)(This + 0x7830);
 	bool isMovie = false;
 	if (entry) isMovie = isMovieOnly (*entry);
 
@@ -321,6 +322,51 @@ PVSelLoop (u64 This) {
 	}
 
 	lastCover = *(i32 *)(This + 0xA8);
+
+	if (IsButtonTapped (inputState, Button::R2) && entry.has_value ()) {
+		bool moduleChanged = false;
+		auto score         = FindScore (GetSaveData (), entry.value ()->id);
+		for (u64 i = 0; i < entry.value ()->performers.length (); i++) {
+			auto performer = entry.value ()->performers.at (i).value ();
+			if (performer->fixed) continue;
+			if (performer->pseudo_same_id != -1) performer = entry.value ()->performers.at (performer->pseudo_same_id).value ();
+
+			auto cos = performer->pv_costume[diff];
+			if (cos == -1) cos = 0;
+
+			ModuleData *module = nullptr;
+			for (auto it = modules->begin (); it != modules->end (); it++) {
+				if (it->chara == performer->chara && it->cos == cos) {
+					module = it;
+					break;
+				}
+			}
+			if (module == nullptr || !CheckModuleUnlocked (FindModule (GetSaveData (), module->id))) continue;
+
+			auto save_data             = (SaveDataModule *)((u64)score + 0x10E0 + (i * sizeof (SaveDataModule)));
+			save_data->moduleId        = module->id;
+			save_data->accessory_head  = performer->item[0];
+			save_data->accessory_face  = performer->item[1];
+			save_data->accessory_chest = performer->item[2];
+			save_data->accessory_back  = performer->item[3];
+			save_data->hair            = -1;
+
+			auto oldModule = (ModuleData *)(This + 0x36A68 + (i * sizeof (ModuleData)));
+			if (module->id == oldModule->id) continue;
+
+			if (oldModule->cos != 0) UnloadSprSet (oldModule->sprSetId);
+			stringRange name_range (8);
+			LoadSprSet (module->sprSetId, &name_range);
+
+			oldModule->id       = module->id;
+			oldModule->cos      = module->cos;
+			oldModule->sprSetId = module->sprSetId;
+			oldModule->spriteId = module->spriteId;
+			moduleChanged       = true;
+		}
+
+		if (moduleChanged) PlaySoundEffect ("se_ft_sys_enter_01", 1.0);
+	}
 
 	return false;
 }
