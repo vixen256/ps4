@@ -467,29 +467,28 @@ HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 	FilteredSongs.clear ();
 	while (FilteredSongs.length () == 0) {
 		if (ModdedIndex < (i32)ModSongs.size ()) {
-			for (auto &song : ModSongs[ModSongIndicies[ModdedIndex]]) {
-				for (auto it = songs->begin (); it != songs->end (); it++) {
-					auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
-					auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-					if (it->pv->pvData->id == song && it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) {
-						FilteredSongs.push_back (it);
-						break;
-					}
-				}
+			for (auto it = songs->begin (); it != songs->end (); it++) {
+				if (!ModSongs[ModSongIndicies[ModdedIndex]].contains (it->pv->pvData->id) || !it->pv->pvData->HasDifficulty (*diff, *extra)) continue;
+				auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+				auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+				if (!IsScoreDifficultyUnlocked (scoreDifficulty)) continue;
+				FilteredSongs.push_back (it);
 			}
 		} else if (ModdedIndex == (i32)ModSongs.size ()) {
 			for (auto it = songs->begin (); it != songs->end (); it++) {
+				if (!it->pv->pvData->HasDifficulty (*diff, *extra)) continue;
 				auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
 				auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-				if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) FilteredSongs.push_back (it);
+				if (!IsScoreDifficultyUnlocked (scoreDifficulty)) continue;
+				FilteredSongs.push_back (it);
 			}
 		} else if (ModdedIndex == (i32)ModSongs.size () + 1) {
 			for (auto it = songs->begin (); it != songs->end (); it++) {
+				if (!it->pv->pvData->HasDifficulty (*diff, *extra)) continue;
 				auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
 				auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-				if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) {
-					if (*(bool *)((u64)score + 0x119F)) FilteredSongs.push_back (it);
-				}
+				if (!IsScoreDifficultyUnlocked (scoreDifficulty) || !*(bool *)((u64)score + 0x119F)) continue;
+				FilteredSongs.push_back (it);
 			}
 		}
 
@@ -507,6 +506,7 @@ HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 			for (u64 i = 0; i < 254; i++) {
 				if (gameReleaseOrder[i] == a->pv->pvData->id) a_index = i;
 				if (gameReleaseOrder[i] == b->pv->pvData->id) b_index = i;
+				if (a_index && b_index) break;
 			}
 
 			if (a_index == 0 || b_index == 0) return a->pv->pvData->id < b->pv->pvData->id;
@@ -551,19 +551,28 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	*(i32 **)(a1 + 0x373D0) = &ModdedIndex;
 	*(i32 *)(a1 + 0x373CC)  = ModSongs.size () + 2;
 
-	whereCreateSortedPVList (a1);
-	*(i32 *)(a1 + 0x373E0) = 4;
+	FilteredSongs.clear ();
+	while (FilteredSongs.length () <= 1) {
+		whereCreateSortedPVList (a1);
+		*(i32 *)(a1 + 0x373E0) = 4;
+		if (FilteredSongs.length () <= 1) {
+			ModdedIndex += *(i32 *)(a1 + 0x373F4);
+			if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
+			else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
+		}
+	}
 
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
 	auto extra = (bool *)(a1 + 0x373FC);
 
-	i32 totalCount = 0;
-	for (auto it = songs->begin (); it != songs->end (); it++) {
-		auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+	i32 totalCount = std::count_if (std::execution::par, songs->begin (), songs->end (), [&] (auto &it) {
+		if (!it.pv->pvData->HasDifficulty (*diff, *extra)) return false;
+		auto score           = FindScore (GetSaveData (), it.pv->pvData->id);
 		auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-		if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) totalCount++;
-	}
+		return IsScoreDifficultyUnlocked (scoreDifficulty);
+	});
+
 	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
 	DisplaySongList (a1, true, false, true);
@@ -573,23 +582,28 @@ HOOK (void, ChangeFilter, 0x1402078D0, u64 a1, i32 direction) {
 	if (*(u32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalChangeFilter (a1, direction);
 
 	*(i32 *)(a1 + 0x373F4) = direction;
-	ModdedIndex += direction;
-	if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
-	else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
 
-	whereCreateSortedPVList (a1);
-	*(i32 *)(a1 + 0x373E0) = 4;
+	FilteredSongs.clear ();
+	while (FilteredSongs.length () <= 1) {
+		ModdedIndex += direction;
+		if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
+		else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
+
+		whereCreateSortedPVList (a1);
+		*(i32 *)(a1 + 0x373E0) = 4;
+	}
 
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
 	auto extra = (bool *)(a1 + 0x373FC);
 
-	i32 totalCount = 0;
-	for (auto it = songs->begin (); it != songs->end (); it++) {
-		auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+	i32 totalCount = std::count_if (std::execution::par, songs->begin (), songs->end (), [&] (auto &it) {
+		if (!it.pv->pvData->HasDifficulty (*diff, *extra)) return false;
+		auto score           = FindScore (GetSaveData (), it.pv->pvData->id);
 		auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-		if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) totalCount++;
-	}
+		return IsScoreDifficultyUnlocked (scoreDifficulty);
+	});
+
 	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
 	DisplaySongList (a1, true, true, true);
@@ -628,18 +642,31 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 	*(vector<PvSelData> **)(a1 + 0x37308) = (vector<PvSelData> *)(a1 + (*diff * 2 + 0x24AB + *extra) * 0x18);
 	auto songs                            = *(vector<PvSelData> **)(a1 + 0x37308);
 
-	whereCreateSortedPVList (a1);
-	*(i32 *)(a1 + 0x373E0) = 4;
-
-	i32 totalCount = 0;
-	for (auto it = songs->begin (); it != songs->end (); it++) {
-		auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
-		auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-		if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) totalCount++;
+	FilteredSongs.clear ();
+	while (FilteredSongs.length () <= 1) {
+		whereCreateSortedPVList (a1);
+		*(i32 *)(a1 + 0x373E0) = 4;
+		if (FilteredSongs.length () <= 1) {
+			if (*diff == 3) {
+				if (*extra == true) *extra = false;
+				else *diff += direction;
+			} else if (*diff == 0) {
+				*diff  = 3;
+				*extra = true;
+			} else {
+				*diff += direction;
+			}
+		}
 	}
-	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
-	direction *= -1;
+	i32 totalCount = std::count_if (std::execution::par, songs->begin (), songs->end (), [&] (auto &it) {
+		if (!it.pv->pvData->HasDifficulty (*diff, *extra)) return false;
+		auto score           = FindScore (GetSaveData (), it.pv->pvData->id);
+		auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+		return IsScoreDifficultyUnlocked (scoreDifficulty);
+	});
+
+	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
 	DisplaySongList (a1, false, false, true);
 }
