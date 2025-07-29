@@ -428,6 +428,16 @@ HOOK (void, GetListNumAllData, 0x14020E2F0, u64 a1, u32 index, Vec3 *position, V
 	}
 }
 
+const i32 gameReleaseOrder[] = {
+    1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  27,  28,  29,  30,  31,  32,  101, 201, 202, 203, 401, 402,
+    403, 404, 405, 407, 408, 409, 410, 411, 412, 204, 205, 206, 207, 102, 208, 209, 210, 211, 38,  41,  43,  58,  59,  48,  49,  54,  56,  62,  413, 414, 415, 416, 417, 55,  64,  66,  212,
+    37,  44,  50,  51,  65,  418, 419, 420, 421, 422, 39,  40,  47,  53,  60,  213, 423, 424, 425, 426, 427, 42,  57,  61,  63,  45,  46,  52,  428, 429, 82,  86,  215, 90,  94,  430, 431,
+    87,  88,  93,  96,  89,  95,  97,  81,  83,  84,  79,  91,  92,  85,  214, 220, 227, 228, 218, 225, 226, 231, 103, 216, 232, 104, 221, 222, 224, 233, 234, 219, 236, 223, 235, 600, 602,
+    616, 626, 628, 603, 619, 622, 613, 638, 239, 240, 615, 238, 433, 601, 629, 607, 611, 620, 432, 608, 610, 435, 614, 639, 434, 617, 618, 624, 242, 612, 625, 243, 630, 642, 436, 437, 438,
+    621, 439, 440, 640, 641, 441, 631, 730, 244, 241, 442, 710, 443, 627, 637, 246, 604, 605, 250, 609, 623, 247, 724, 727, 722, 723, 732, 248, 739, 740, 251, 729, 736, 725, 726, 734, 731,
+    737, 728, 733, 738, 249, 257, 259, 260, 255, 261, 253, 832, 262, 265, 254, 263, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281,
+};
+
 struct PvSelData {
 	PvSpriteId *pv;
 	bool unk08;
@@ -496,7 +506,20 @@ HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 			else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
 		}
 	}
-	std::sort (std::execution::par, FilteredSongs.begin (), FilteredSongs.end (), [] (auto a, auto b) { return a->pv->pvData->id < b->pv->pvData->id; });
+
+	if (ModdedIndex == 0)
+		std::sort (std::execution::par, FilteredSongs.begin (), FilteredSongs.end (), [] (auto a, auto b) {
+			u64 a_index = 0;
+			u64 b_index = 0;
+			for (u64 i = 0; i < 254; i++) {
+				if (gameReleaseOrder[i] == a->pv->pvData->id) a_index = i;
+				if (gameReleaseOrder[i] == b->pv->pvData->id) b_index = i;
+			}
+
+			if (a_index == 0 || b_index == 0) return a->pv->pvData->id < b->pv->pvData->id;
+			else return a_index < b_index;
+		});
+	else std::sort (std::execution::par, FilteredSongs.begin (), FilteredSongs.end (), [] (auto a, auto b) { return a->pv->pvData->id < b->pv->pvData->id; });
 
 	FilteredSongs.push_back (&randomData);
 
@@ -555,6 +578,7 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 
 HOOK (void, ChangeFilter, 0x1402078D0, u64 a1, i32 direction) {
 	if (*(u32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalChangeFilter (a1, direction);
+
 	*(i32 *)(a1 + 0x373F4) = direction;
 	ModdedIndex += direction;
 	if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
@@ -687,7 +711,15 @@ PvSelInit (u64 This) {
 		u64 length                         = strstr (path.c_str () + offset, buf) - (path.c_str () + offset);
 		path.c_str ()[offset + length - 1] = '\0';
 
-		if (strstr (path.c_str () + offset, modsPrefix)) {
+		bool fromGame = false;
+		for (u64 i = 0; i < 254; i++) {
+			if (gameReleaseOrder[i] == pv->id) {
+				fromGame = true;
+				break;
+			}
+		}
+
+		if (strstr (path.c_str () + offset, modsPrefix) && !fromGame) {
 			offset += strlen (modsPrefix) + 1;
 			auto key = std::string (path.c_str () + offset);
 			if (ModSongs.contains (key)) ModSongs[key].insert (pv->id);

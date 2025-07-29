@@ -153,7 +153,7 @@ HOOK (void, GetBgmIndexCsResult4, 0x140237730);
 
 __declspec (dllexport) void
 init () {
-	AllocConsole ();
+	freopen ("CONOUT$", "w", stdout);
 	bool screenshot_loading_screen = true;
 	auto file                      = fopen ("config.toml", "r");
 	auto config                    = toml_parse_file (file, NULL, 0);
