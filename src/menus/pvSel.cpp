@@ -449,6 +449,7 @@ FUNCTION_PTR (void, UpdateSongListPlaceholders, 0x140211D00, u64 a1, u64 a2);
 FUNCTION_PTR (void, DisplaySongList, 0x1402066C0, u64 a1, bool, bool, bool);
 
 const char *SortLayerName = "sort_set_mod";
+i32 SortIndex             = 0;
 
 char modsPrefix[MAX_PATH];
 i32 ModdedIndex = 0;
@@ -518,8 +519,8 @@ HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 
 	*(vector<PvSelData *> **)(a1 + 0x36FD8) = &FilteredSongs;
 
-	*(i32 *)(a1 + 0x55F4)                      = FilteredSongs.length ();
-	*(i32 *)(a1 + 0x37378 + (ModdedIndex * 4)) = FilteredSongs.length () - 1;
+	*(i32 *)(a1 + 0x55F4)  = FilteredSongs.length ();
+	*(i32 *)(a1 + 0x37378) = FilteredSongs.length () - 1;
 
 	auto id   = *(i32 *)(a1 + 0x36A30);
 	i32 index = 0;
@@ -548,8 +549,8 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	} else if (*sort != 3) return originalChangeSort (a1);
 
 	*sort                   = 4;
-	*(i32 **)(a1 + 0x373D0) = &ModdedIndex;
-	*(i32 *)(a1 + 0x373CC)  = ModSongs.size () + 2;
+	*(i32 **)(a1 + 0x373D0) = &SortIndex;
+	*(i32 *)(a1 + 0x373CC)  = 1;
 
 	FilteredSongs.clear ();
 	while (FilteredSongs.length () <= 1) {
@@ -573,7 +574,7 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 		return IsScoreDifficultyUnlocked (scoreDifficulty);
 	});
 
-	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
+	*(i32 *)(a1 + 0x3737C) = totalCount;
 
 	DisplaySongList (a1, true, false, true);
 }
@@ -604,7 +605,7 @@ HOOK (void, ChangeFilter, 0x1402078D0, u64 a1, i32 direction) {
 		return IsScoreDifficultyUnlocked (scoreDifficulty);
 	});
 
-	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
+	*(i32 *)(a1 + 0x3737C) = totalCount;
 
 	DisplaySongList (a1, true, true, true);
 }
@@ -666,7 +667,7 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 		return IsScoreDifficultyUnlocked (scoreDifficulty);
 	});
 
-	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
+	*(i32 *)(a1 + 0x3737C) = totalCount;
 
 	DisplaySongList (a1, false, false, true);
 }
