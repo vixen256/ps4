@@ -456,10 +456,6 @@ i32 lastIndex = 0;
 
 HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 	if (*(i32 *)(a1 + 0x373E0) != 4) return originalCreateSortedPVList (a1);
-	else if (initing) {
-		initing = false;
-		return;
-	}
 
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
@@ -547,7 +543,7 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 		*sort                                   = -1;
 		*(vector<PvSelData *> **)(a1 + 0x36FD8) = nullptr;
 		return originalChangeSort (a1);
-	} else if (*sort != 3) return originalChangeSort (a1);
+	} else if (*sort != 3 || IsSurvival ()) return originalChangeSort (a1);
 
 	*sort                   = 4;
 	*(i32 **)(a1 + 0x373D0) = &SortIndex;
@@ -680,14 +676,15 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 	if (ModdedIndex != (i32)ModSongs.size () + 1 && !initing) return;
 
 	if (initing) {
+		initing = false;
+		WRITE_NOP (0x14020335D, 5);
+
 		*(i32 **)(a1 + 0x373D0) = &SortIndex;
 		*(i32 *)(a1 + 0x373CC)  = 1;
 
-		initing                = false;
 		*(i32 *)(a1 + 0x373E0) = 4;
 		whereCreateSortedPVList (a1);
 		*(i32 *)(a1 + 0x373E0) = 4;
-		initing                = true;
 
 		*(i32 *)(a1 + 0x55E8)  = lastIndex;
 		*(i32 *)(a1 + 0x55F8)  = lastIndex;
@@ -707,12 +704,11 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 
 		*(i32 *)(a1 + 0x3737C) = totalCount;
 	} else {
-		whereCreateSortedPVList (a1);
-		*(i32 *)(a1 + 0x373E0) = 4;
-
 		auto id   = *(i32 *)(a1 + 0x36A30);
 		i32 index = *(i32 *)(a1 + 0x55E8);
 		if (index != 0) index -= 1;
+		whereCreateSortedPVList (a1);
+		*(i32 *)(a1 + 0x373E0) = 4;
 		for (u64 i = 0; i < FilteredSongs.length (); i++) {
 			auto pv = **FilteredSongs.at (i);
 			if (pv->pv != nullptr && pv->pv->pvData->id == id) {
@@ -734,6 +730,8 @@ PvSelInit (u64 This) {
 	if (*(u32 *)(This + 0x373E0) == 4) {
 		initing                  = true;
 		*(u32 *)(This + 0x373E0) = 0;
+	} else {
+		WRITE_MEMORY (0x14020335D, u8, 0xE8, 0xC3, 0x38, 0x00, 0x00);
 	}
 	unhide ();
 	u64 pvLoadData = GetPvLoadData ();
