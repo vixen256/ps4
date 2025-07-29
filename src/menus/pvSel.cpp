@@ -455,7 +455,7 @@ bool initing;
 i32 lastIndex = 0;
 
 HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
-	if (*(i32 *)(a1 + 0x373E0) != 4) return originalCreateSortedPVList (a1);
+	if (*(i32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalCreateSortedPVList (a1);
 
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
