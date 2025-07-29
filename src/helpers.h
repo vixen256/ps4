@@ -32,10 +32,10 @@ typedef double f64;
 
 #define PROC_ADDRESS(libraryName, procName) GetProcAddress (LoadLibrary (TEXT (libraryName)), procName)
 
-#define HOOK(returnType, functionName, location, ...)       \
-	typedef returnType (*functionName) (__VA_ARGS__);       \
-	functionName original##functionName = NULL;             \
-	void *where##functionName           = (void *)location; \
+#define HOOK(returnType, functionName, location, ...)             \
+	typedef returnType (*functionName) (__VA_ARGS__);             \
+	functionName original##functionName = NULL;                   \
+	functionName where##functionName    = (functionName)location; \
 	returnType implOf##functionName (__VA_ARGS__)
 
 #define INSTALL_HOOK(functionName)                                                                                     \

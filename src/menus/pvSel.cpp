@@ -454,40 +454,74 @@ std::vector<std::string> ModSongIndicies;
 vector<PvSelData *> FilteredSongs;
 PvSelData randomData;
 
-void
-FillFilteredSongs (u64 a1) {
+HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
+	if (*(i32 *)(a1 + 0x373E0) != 4) return originalCreateSortedPVList (a1);
+
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
 	auto extra = (bool *)(a1 + 0x373FC);
 
-	if (ModdedIndex < (i32)ModSongs.size ()) {
-		for (auto &song : ModSongs[ModSongIndicies[ModdedIndex]]) {
+	FilteredSongs.clear ();
+	while (FilteredSongs.length () == 0) {
+		if (ModdedIndex < (i32)ModSongs.size ()) {
+			for (auto &song : ModSongs[ModSongIndicies[ModdedIndex]]) {
+				for (auto it = songs->begin (); it != songs->end (); it++) {
+					auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+					auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+					if (it->pv->pvData->id == song && it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) {
+						FilteredSongs.push_back (it);
+						break;
+					}
+				}
+			}
+		} else if (ModdedIndex == (i32)ModSongs.size ()) {
 			for (auto it = songs->begin (); it != songs->end (); it++) {
 				auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
 				auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-				if (it->pv->pvData->id == song && it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) {
-					FilteredSongs.push_back (it);
-					break;
+				if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) FilteredSongs.push_back (it);
+			}
+		} else if (ModdedIndex == (i32)ModSongs.size () + 1) {
+			for (auto it = songs->begin (); it != songs->end (); it++) {
+				auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+				auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+				if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) {
+					if (*(bool *)((u64)score + 0x119F)) FilteredSongs.push_back (it);
 				}
 			}
 		}
-	} else if (ModdedIndex == (i32)ModSongs.size ()) {
-		for (auto it = songs->begin (); it != songs->end (); it++) {
-			auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
-			auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-			if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) FilteredSongs.push_back (it);
-		}
-	} else if (ModdedIndex == (i32)ModSongs.size () + 1) {
-		for (auto it = songs->begin (); it != songs->end (); it++) {
-			auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
-			auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-			if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) {
-				if (*(bool *)((u64)score + 0x119F)) FilteredSongs.push_back (it);
-			}
+
+		if (FilteredSongs.length () == 0) {
+			ModdedIndex += *(i32 *)(a1 + 0x373F4);
+			if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
+			else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
 		}
 	}
-
 	std::sort (std::execution::par, FilteredSongs.begin (), FilteredSongs.end (), [] (auto a, auto b) { return a->pv->pvData->id < b->pv->pvData->id; });
+
+	FilteredSongs.push_back (&randomData);
+
+	*(vector<PvSelData *> **)(a1 + 0x36FD8) = &FilteredSongs;
+
+	*(i32 *)(a1 + 0x55F4)                      = FilteredSongs.length ();
+	*(i32 *)(a1 + 0x37378 + (ModdedIndex * 4)) = FilteredSongs.length () - 1;
+
+	auto id   = *(i32 *)(a1 + 0x36A30);
+	i32 index = 0;
+	for (u64 i = 0; i < FilteredSongs.length (); i++) {
+		auto pv = **FilteredSongs.at (i);
+		if (pv->pv != nullptr && pv->pv->pvData->id == id) {
+			index = i;
+			break;
+		}
+	}
+	*(i32 *)(a1 + 0x55E8)  = index;
+	*(i32 *)(a1 + 0x55F8)  = index;
+	*(i32 *)(a1 + 0x36FC8) = index;
+
+	UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
+
+	// For new classics
+	*(i32 *)(a1 + 0x373E0) = 0;
 }
 
 HOOK (void, ChangeSort, 0x140207650, u64 a1) {
@@ -500,39 +534,13 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	*sort                   = 4;
 	*(i32 **)(a1 + 0x373D0) = &ModdedIndex;
 	*(i32 *)(a1 + 0x373CC)  = ModSongs.size () + 2;
-	auto songs              = *(vector<PvSelData> **)(a1 + 0x37308);
-	auto diff               = (i32 *)(a1 + 0x373F8);
-	auto extra              = (bool *)(a1 + 0x373FC);
 
-	FilteredSongs.clear ();
-	while (FilteredSongs.length () == 0) {
-		FillFilteredSongs (a1);
+	whereCreateSortedPVList (a1);
+	*(i32 *)(a1 + 0x373E0) = 4;
 
-		if (FilteredSongs.length () == 0) {
-			ModdedIndex += *(i32 *)(a1 + 0x373F4);
-			if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
-			else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
-		}
-	}
-
-	FilteredSongs.push_back (&randomData);
-
-	*(vector<PvSelData *> **)(a1 + 0x36FD8) = &FilteredSongs;
-
-	auto id   = *(i32 *)(a1 + 0x36A30);
-	i32 index = 0;
-	for (u64 i = 0; i < FilteredSongs.length (); i++) {
-		auto pv = **FilteredSongs.at (i);
-		if (pv->pv != nullptr && pv->pv->pvData->id == id) {
-			index = i;
-			break;
-		}
-	}
-	*(i32 *)(a1 + 0x55E8)                      = index;
-	*(i32 *)(a1 + 0x55F8)                      = index;
-	*(i32 *)(a1 + 0x36FC8)                     = index;
-	*(i32 *)(a1 + 0x55F4)                      = FilteredSongs.length ();
-	*(i32 *)(a1 + 0x37378 + (ModdedIndex * 4)) = FilteredSongs.length () - 1;
+	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
+	auto diff  = (i32 *)(a1 + 0x373F8);
+	auto extra = (bool *)(a1 + 0x373FC);
 
 	i32 totalCount = 0;
 	for (auto it = songs->begin (); it != songs->end (); it++) {
@@ -542,33 +550,31 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	}
 	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
-	UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
 	DisplaySongList (a1, true, false, true);
 }
 
 HOOK (void, ChangeFilter, 0x1402078D0, u64 a1, i32 direction) {
 	if (*(u32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalChangeFilter (a1, direction);
 	*(i32 *)(a1 + 0x373F4) = direction;
+	ModdedIndex += direction;
+	if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
+	else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
 
-	FilteredSongs.clear ();
+	whereCreateSortedPVList (a1);
+	*(i32 *)(a1 + 0x373E0) = 4;
 
-	while (FilteredSongs.length () == 0) {
-		ModdedIndex += direction;
-		if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
-		else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
+	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
+	auto diff  = (i32 *)(a1 + 0x373F8);
+	auto extra = (bool *)(a1 + 0x373FC);
 
-		FillFilteredSongs (a1);
+	i32 totalCount = 0;
+	for (auto it = songs->begin (); it != songs->end (); it++) {
+		auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+		auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+		if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) totalCount++;
 	}
+	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
-	FilteredSongs.push_back (&randomData);
-
-	*(i32 *)(a1 + 0x55E8)                      = 0;
-	*(i32 *)(a1 + 0x55F8)                      = 0;
-	*(i32 *)(a1 + 0x36FC8)                     = 0;
-	*(i32 *)(a1 + 0x55F4)                      = FilteredSongs.length ();
-	*(i32 *)(a1 + 0x37378 + (ModdedIndex * 4)) = FilteredSongs.length () - 1;
-
-	UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
 	DisplaySongList (a1, true, true, true);
 }
 
@@ -576,12 +582,12 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 	if (*(u32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalChangeDiff (a1, direction);
 	if (direction == 0) return;
 
-	FilteredSongs.clear ();
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
 	auto extra = (bool *)(a1 + 0x373FC);
 
-	while (FilteredSongs.length () == 0) {
+	i32 totalCount = 0;
+	while (totalCount == 0) {
 		if (direction > 0) {
 			if (*diff == 3) {
 				if (*extra == true) {
@@ -604,38 +610,20 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 				*diff += direction;
 			}
 		}
-		direction = -1;
 
-		FillFilteredSongs (a1);
-	}
-
-	FilteredSongs.push_back (&randomData);
-
-	auto id   = *(i32 *)(a1 + 0x36A30);
-	i32 index = 0;
-	for (u64 i = 0; i < FilteredSongs.length (); i++) {
-		auto pv = **FilteredSongs.at (i);
-		if (pv->pv != nullptr && pv->pv->pvData->id == id) {
-			index = i;
-			break;
+		for (auto it = songs->begin (); it != songs->end (); it++) {
+			auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
+			auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+			if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) totalCount++;
 		}
+
+		direction = -1;
 	}
 
-	*(i32 *)(a1 + 0x55E8)                      = index;
-	*(i32 *)(a1 + 0x55F8)                      = index;
-	*(i32 *)(a1 + 0x36FC8)                     = index;
-	*(i32 *)(a1 + 0x55F4)                      = FilteredSongs.length ();
-	*(i32 *)(a1 + 0x37378 + (ModdedIndex * 4)) = FilteredSongs.length () - 1;
-
-	i32 totalCount = 0;
-	for (auto it = songs->begin (); it != songs->end (); it++) {
-		auto score           = FindScore (GetSaveData (), it->pv->pvData->id);
-		auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
-		if (it->pv->pvData->HasDifficulty (*diff, *extra) && IsScoreDifficultyUnlocked (scoreDifficulty)) totalCount++;
-	}
+	whereCreateSortedPVList (a1);
+	*(i32 *)(a1 + 0x373E0)                                = 4;
 	*(i32 *)(a1 + 0x37378 + ((ModSongs.size () + 2) * 4)) = totalCount;
 
-	UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
 	DisplaySongList (a1, false, false, true);
 }
 
@@ -643,20 +631,8 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 	if (*(u32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalUpdatePvListData (a1);
 	if (ModdedIndex != (i32)ModSongs.size () + 1) return;
 
-	FilteredSongs.clear ();
-	while (FilteredSongs.length () == 0) {
-		FillFilteredSongs (a1);
-
-		if (FilteredSongs.length () == 0) {
-			ModdedIndex += *(i32 *)(a1 + 0x373F4);
-			if (ModdedIndex >= (i32)ModSongs.size () + 2) ModdedIndex = 0;
-			else if (ModdedIndex < 0) ModdedIndex = ModSongs.size () + 1;
-		}
-	}
-
-	FilteredSongs.push_back (&randomData);
-
-	*(vector<PvSelData *> **)(a1 + 0x36FD8) = &FilteredSongs;
+	whereCreateSortedPVList (a1);
+	*(i32 *)(a1 + 0x373E0) = 4;
 
 	auto id   = *(i32 *)(a1 + 0x36A30);
 	i32 index = *(i32 *)(a1 + 0x55E8);
@@ -668,13 +644,10 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 			break;
 		}
 	}
-	*(i32 *)(a1 + 0x55E8)                      = index;
-	*(i32 *)(a1 + 0x55F8)                      = index;
-	*(i32 *)(a1 + 0x36FC8)                     = index;
-	*(i32 *)(a1 + 0x55F4)                      = FilteredSongs.length ();
-	*(i32 *)(a1 + 0x37378 + (ModdedIndex * 4)) = FilteredSongs.length () - 1;
+	*(i32 *)(a1 + 0x55E8)  = index;
+	*(i32 *)(a1 + 0x55F8)  = index;
+	*(i32 *)(a1 + 0x36FC8) = index;
 
-	UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
 	DisplaySongList (a1, false, false, true);
 }
 
@@ -762,5 +735,6 @@ init () {
 	INSTALL_HOOK (ChangeFilter);
 	INSTALL_HOOK (ChangeDiff);
 	INSTALL_HOOK (UpdatePvListData);
+	INSTALL_HOOK (CreateSortedPVList);
 }
 } // namespace pvSel
