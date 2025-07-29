@@ -452,6 +452,7 @@ std::vector<std::string> ModSongIndicies;
 vector<PvSelData *> FilteredSongs;
 PvSelData randomData;
 bool initing;
+i32 lastIndex = 0;
 
 HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 	if (*(i32 *)(a1 + 0x373E0) != 4) return originalCreateSortedPVList (a1);
@@ -688,6 +689,11 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 		*(i32 *)(a1 + 0x373E0) = 4;
 		initing                = true;
 
+		*(i32 *)(a1 + 0x55E8)  = lastIndex;
+		*(i32 *)(a1 + 0x55F8)  = lastIndex;
+		*(i32 *)(a1 + 0x36FC8) = lastIndex;
+		UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
+
 		auto diff  = (i32 *)(a1 + 0x373F8);
 		auto extra = (bool *)(a1 + 0x373FC);
 		auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
@@ -703,21 +709,22 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 	} else {
 		whereCreateSortedPVList (a1);
 		*(i32 *)(a1 + 0x373E0) = 4;
-	}
 
-	auto id   = *(i32 *)(a1 + 0x36A30);
-	i32 index = *(i32 *)(a1 + 0x55E8);
-	if (index != 0) index -= 1;
-	for (u64 i = 0; i < FilteredSongs.length (); i++) {
-		auto pv = **FilteredSongs.at (i);
-		if (pv->pv != nullptr && pv->pv->pvData->id == id) {
-			index = i;
-			break;
+		auto id   = *(i32 *)(a1 + 0x36A30);
+		i32 index = *(i32 *)(a1 + 0x55E8);
+		if (index != 0) index -= 1;
+		for (u64 i = 0; i < FilteredSongs.length (); i++) {
+			auto pv = **FilteredSongs.at (i);
+			if (pv->pv != nullptr && pv->pv->pvData->id == id) {
+				index = i;
+				break;
+			}
 		}
+		*(i32 *)(a1 + 0x55E8)  = index;
+		*(i32 *)(a1 + 0x55F8)  = index;
+		*(i32 *)(a1 + 0x36FC8) = index;
+		UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
 	}
-	*(i32 *)(a1 + 0x55E8)  = index;
-	*(i32 *)(a1 + 0x55F8)  = index;
-	*(i32 *)(a1 + 0x36FC8) = index;
 
 	DisplaySongList (a1, false, false, true);
 }
@@ -738,6 +745,7 @@ PvSelInit (u64 This) {
 
 bool
 PvSelDestroy (u64 This) {
+	lastIndex                                 = *(i32 *)(This + 0x55E8);
 	*(vector<PvSelData *> **)(This + 0x36FD8) = nullptr;
 	hide ();
 	return false;
