@@ -452,6 +452,7 @@ std::vector<std::string> ModSongIndicies;
 vector<PvSelData *> FilteredSongs;
 PvSelData randomData;
 bool initing;
+bool wantsModded;
 i32 lastIndex = 0;
 
 HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
@@ -672,12 +673,16 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 }
 
 HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
+	if (initing && !wantsModded) {
+		originalUpdatePvListData (a1);
+		whereCreateSortedPVList (a1);
+		return;
+	}
 	if ((*(u32 *)(a1 + 0x373E0) != 4 && !initing) || IsSurvival ()) return originalUpdatePvListData (a1);
 	if (ModdedIndex != (i32)ModSongs.size () + 1 && !initing) return;
 
 	if (initing) {
 		initing = false;
-		WRITE_NOP (0x14020335D, 5);
 
 		*(i32 **)(a1 + 0x373D0) = &SortIndex;
 		*(i32 *)(a1 + 0x373CC)  = 1;
@@ -727,11 +732,12 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 
 bool
 PvSelInit (u64 This) {
+	initing = true;
 	if (*(u32 *)(This + 0x373E0) == 4) {
-		initing                  = true;
 		*(u32 *)(This + 0x373E0) = 0;
+		wantsModded              = true;
 	} else {
-		WRITE_MEMORY (0x14020335D, u8, 0xE8, 0xC3, 0x38, 0x00, 0x00);
+		wantsModded = false;
 	}
 	unhide ();
 	u64 pvLoadData = GetPvLoadData ();
@@ -868,6 +874,7 @@ init () {
 
 	WRITE_MEMORY (0x14CC5EF18, void *, nswgamPVSelTask);
 	WRITE_MEMORY (0x140BE9488, char *, SortLayerName);
+	WRITE_NOP (0x14020335D, 5);
 	INSTALL_HOOK (GetListNumAllData);
 	INSTALL_HOOK (ChangeSort);
 	INSTALL_HOOK (ChangeFilter);
