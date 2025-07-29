@@ -268,7 +268,12 @@ struct vector {
 	T *last;
 	void *capacity_end;
 
-	vector () {}
+	vector () {
+		this->first        = nullptr;
+		this->last         = nullptr;
+		this->capacity_end = nullptr;
+	}
+
 	vector (u64 n) {
 		this->first        = allocate<T> (n);
 		this->last         = this->first;
@@ -283,6 +288,15 @@ struct vector {
 	}
 
 	void push_back (T value) {
+		if (this->first == nullptr) {
+			this->first        = allocate<T> (16);
+			this->last         = this->first;
+			this->capacity_end = (void *)((u64)this->first + (16 * sizeof (T)));
+			this->first[0]     = value;
+			this->last++;
+			return;
+		}
+
 		if (this->remaining_capcity () > 0) {
 			this->first[this->length ()] = value;
 			this->last++;
@@ -300,6 +314,8 @@ struct vector {
 		this->capacity_end = (void *)((u64)new_first + (new_length * sizeof (T)));
 		this->push_back (value);
 	}
+
+	void clear () { this->last = this->first; }
 
 	u64 length () { return ((u64)this->last - (u64)this->first) / sizeof (T); }
 	u64 capacity () { return ((u64)this->capacity_end - (u64)this->first) / sizeof (T); }
@@ -708,6 +724,12 @@ struct PvDbEntry {
 	INSERT_PADDING (0x288);
 	i32 pack;
 
+	bool HasDifficulty (i32 diff, bool extra) {
+		for (auto it = this->difficulties[diff].begin (); it != this->difficulties[diff].end (); it++)
+			if (it->isExtra == extra) return true;
+		return false;
+	}
+
 	~PvDbEntry () = delete;
 };
 
@@ -1067,11 +1089,22 @@ struct SaveDataModule {
 	i32 hair;
 };
 
+struct PvSpriteId {
+	PvDbEntry *pvData;
+	u32 setId;
+	u32 bgId[4];
+	u32 jkId[4];
+	u32 logoId[4];
+	u32 thumbId[4];
+};
+
 #pragma pack(pop)
 
 extern vector<PvDbEntry *> *pvs;
+extern map<i32, PvSpriteId> *pvSprites;
 extern map<i32, AetData> *aets;
 extern vector<ModuleData> *modules;
+extern vector<string> *romDirs;
 
 using AetComposition = map<string, AetLayoutData>;
 template <>
@@ -1106,6 +1139,8 @@ FUNCTION_PTR_H (Texture *, TextureLoadTex2D, u32 id, i32 format, u32 width, u32 
 FUNCTION_PTR_H (void, GetPlayerRank, i32 *exp, i32 *rank);
 FUNCTION_PTR_H (void *, GetSaveData);
 FUNCTION_PTR_H (void *, FindScore, void *saveData, i32 pvId);
+FUNCTION_PTR_H (void *, GetScoreDifficulty, void *score, i32 unk, i32 diff, i32 extra);
+FUNCTION_PTR_H (bool, IsScoreDifficultyUnlocked, void *scoreDifficulty);
 FUNCTION_PTR_H (void *, FindModule, void *saveData, u32 moduleId);
 FUNCTION_PTR_H (bool, CheckModuleUnlocked, void *moduleSaveData);
 FUNCTION_PTR_H (void, LoadAetSet, i32 id, string *out);
@@ -1114,6 +1149,7 @@ FUNCTION_PTR_H (void, LoadSprSet, i32 id, stringRange *out);
 FUNCTION_PTR_H (bool, LoadSprSetFinish, i32 id);
 FUNCTION_PTR_H (void, UnloadAetSet, i32 id);
 FUNCTION_PTR_H (void, UnloadSprSet, i32 id);
+FUNCTION_PTR_H (bool, ResolveFilePath, string *from, string *out);
 
 void appendThemeInPlace (char *name);
 char *appendTheme (const char *name);
