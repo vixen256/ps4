@@ -378,12 +378,6 @@ unhide () {
 }
 
 bool
-PvSelDestroy (u64 This) {
-	hide ();
-	return false;
-}
-
-bool
 PvSelDisplay (u64 This) {
 	// Disable on playlist
 	if (*(u8 *)(0x14CC10480) || selectorId == 0 || !playing) return false;
@@ -544,13 +538,18 @@ HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	auto sort = (i32 *)(a1 + 0x373E0);
 	if (*sort == 4) {
-		*sort = -1;
+		*sort                                   = -1;
+		*(vector<PvSelData *> **)(a1 + 0x36FD8) = nullptr;
 		return originalChangeSort (a1);
 	} else if (*sort != 3) return originalChangeSort (a1);
 
 	*sort                   = 4;
 	*(i32 **)(a1 + 0x373D0) = &SortIndex;
 	*(i32 *)(a1 + 0x373CC)  = 1;
+
+	auto diff                             = (i32 *)(a1 + 0x373F8);
+	auto extra                            = (bool *)(a1 + 0x373FC);
+	*(vector<PvSelData> **)(a1 + 0x37308) = (vector<PvSelData> *)(a1 + (*diff * 2 + 0x24AB + *extra) * 0x18);
 
 	FilteredSongs.clear ();
 	while (FilteredSongs.length () <= 1) {
@@ -564,8 +563,6 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	}
 
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
-	auto diff  = (i32 *)(a1 + 0x373F8);
-	auto extra = (bool *)(a1 + 0x373FC);
 
 	i32 totalCount = std::count_if (std::execution::par, songs->begin (), songs->end (), [&] (auto &it) {
 		if (!it.pv->pvData->HasDifficulty (*diff, *extra)) return false;
@@ -704,73 +701,110 @@ PvSelInit (u64 This) {
 	if (pvLoadData) *(i32 *)(pvLoadData + 0x1D08) = -1;
 	lastCover = 0;
 
-	ModdedIndex = ModSongs.size ();
-	for (auto it = pvs->begin (); it != pvs->end (); it++) {
-		auto pv = *it;
-		if (pv->id == 700 || pv->id == 701 || pv->id == 999) continue;
+	return false;
+}
 
-		char buf[MAX_PATH] = {'\0'};
-		for (auto difficulty = 0; difficulty != 5; difficulty++) {
-			for (auto edition = pv->difficulties[difficulty].begin (); edition != pv->difficulties[difficulty].end (); edition++) {
-				if (edition->scriptFile.length > 0) {
-					strcpy_s (buf, edition->scriptFile.c_str ());
+bool
+PvSelDestroy (u64 This) {
+	*(vector<PvSelData *> **)(This + 0x36FD8) = nullptr;
+	hide ();
+	return false;
+}
+
+HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
+	auto res = originalPvDbRead (task);
+
+	if (*(i32 *)(task + 0x68) == 0 && ModSongs.size () == 0) {
+		for (auto it = pvs->begin (); it != pvs->end (); it++) {
+			auto pv = *it;
+			if (pv->id == 700 || pv->id == 701 || pv->id == 999) continue;
+
+			char buf[MAX_PATH] = {'\0'};
+			for (auto difficulty = 0; difficulty != 5; difficulty++) {
+				for (auto edition = pv->difficulties[difficulty].begin (); edition != pv->difficulties[difficulty].end (); edition++) {
+					if (edition->scriptFile.length > 0) {
+						strcpy_s (buf, edition->scriptFile.c_str ());
+						break;
+					}
+				}
+				if (buf[0] != '\0') break;
+			}
+
+			if (buf[0] == '\0') continue;
+
+			string path (buf);
+			if (!ResolveFilePath (&path, &path)) continue;
+
+			u64 offset = 0;
+			while (path.c_str ()[offset] == '.')
+				offset += 2;
+
+			u64 length                         = strstr (path.c_str () + offset, buf) - (path.c_str () + offset);
+			path.c_str ()[offset + length - 1] = '\0';
+
+			bool fromGame = false;
+			for (u64 i = 0; i < 254; i++) {
+				if (gameReleaseOrder[i] == pv->id) {
+					fromGame = true;
 					break;
 				}
 			}
-			if (buf[0] != '\0') break;
-		}
 
-		if (buf[0] == '\0') continue;
-
-		string path (buf);
-		if (!ResolveFilePath (&path, &path)) continue;
-
-		u64 offset = 0;
-		while (path.c_str ()[offset] == '.')
-			offset += 2;
-
-		u64 length                         = strstr (path.c_str () + offset, buf) - (path.c_str () + offset);
-		path.c_str ()[offset + length - 1] = '\0';
-
-		bool fromGame = false;
-		for (u64 i = 0; i < 254; i++) {
-			if (gameReleaseOrder[i] == pv->id) {
-				fromGame = true;
-				break;
+			if (strstr (path.c_str () + offset, modsPrefix) && !fromGame) {
+				offset += strlen (modsPrefix) + 1;
+				auto key = std::string (path.c_str () + offset);
+				if (ModSongs.contains (key)) ModSongs[key].insert (pv->id);
+				else ModSongs[key] = {pv->id};
+			} else {
+				auto key = std::string ("\0\0");
+				if (ModSongs.contains (key)) ModSongs[key].insert (pv->id);
+				else ModSongs[key] = {pv->id};
 			}
 		}
 
-		if (strstr (path.c_str () + offset, modsPrefix) && !fromGame) {
-			offset += strlen (modsPrefix) + 1;
-			auto key = std::string (path.c_str () + offset);
-			if (ModSongs.contains (key)) ModSongs[key].insert (pv->id);
-			else ModSongs[key] = {pv->id};
-		} else {
-			auto key = std::string ("\0\0");
-			if (ModSongs.contains (key)) ModSongs[key].insert (pv->id);
-			else ModSongs[key] = {pv->id};
+		std::set<i32> miscSongs = {};
+		for (auto it = ModSongs.begin (); it != ModSongs.end ();) {
+			if (it->second.size () <= 3) {
+				for (auto &song : it->second)
+					miscSongs.insert (song);
+				it = ModSongs.erase (it);
+			} else {
+				it++;
+			}
 		}
-	}
+		if (miscSongs.size () > 0) ModSongs[std::string ("\xFF\xFF")] = miscSongs;
 
-	std::set<i32> miscSongs = {};
-	for (auto it = ModSongs.begin (); it != ModSongs.end ();) {
-		if (it->second.size () <= 3) {
-			for (auto &song : it->second)
-				miscSongs.insert (song);
-			it = ModSongs.erase (it);
-		} else {
-			it++;
+		std::map<std::string, std::string> nameReplacements;
+		char buf[MAX_PATH];
+		for (auto it = ModSongs.begin (); it != ModSongs.end (); it++) {
+			sprintf (buf, "%s/%s/config.toml", modsPrefix, it->first.c_str ());
+			FILE *fp = fopen (buf, "r");
+			if (fp == nullptr) continue;
+			auto config = toml_parse_file (fp, nullptr, 0);
+			fclose (fp);
+			if (config == nullptr) continue;
+
+			auto data = toml_string_in (config, "name");
+			if (data.ok) nameReplacements[it->first] = std::string (data.u.s);
+
+			toml_free (config);
 		}
+
+		for (auto it = nameReplacements.begin (); it != nameReplacements.end (); it++) {
+			auto elem   = ModSongs.extract (it->first);
+			elem.key () = it->second;
+			ModSongs.insert (std::move (elem));
+		}
+
+		for (auto &mod : ModSongs)
+			ModSongIndicies.push_back (mod.first);
+
+		memset ((void *)&randomData, 0, sizeof (PvSelData));
+		randomData.isRandom = true;
+
+		ModdedIndex = ModSongs.size ();
 	}
-	if (miscSongs.size () > 0) ModSongs[std::string ("\xFF\xFF")] = miscSongs;
-
-	for (auto &mod : ModSongs)
-		ModSongIndicies.push_back (mod.first);
-
-	memset ((void *)&randomData, 0, sizeof (PvSelData));
-	randomData.isRandom = true;
-
-	return false;
+	return res;
 }
 
 void
@@ -782,6 +816,7 @@ init () {
 		auto data = toml_string_in (config, "mods");
 		if (data.ok) strcpy (modsPrefix, data.u.s);
 		else strcpy (modsPrefix, "mods");
+		toml_free (config);
 	} else {
 		strcpy (modsPrefix, "mods");
 	}
@@ -801,5 +836,6 @@ init () {
 	INSTALL_HOOK (ChangeDiff);
 	INSTALL_HOOK (UpdatePvListData);
 	INSTALL_HOOK (CreateSortedPVList);
+	INSTALL_HOOK (PvDbRead);
 }
 } // namespace pvSel
