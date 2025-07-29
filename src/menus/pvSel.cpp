@@ -255,6 +255,8 @@ optionsSelectTouch (u64 This) {
 }
 
 FUNCTION_PTR (void, PlayMusic, 0x140201320, void *, const char *file, i32 pvId, f32 sabiStartTime, f32 sabiPlayTime, f32 totalLength);
+FUNCTION_PTR (void, FUN1401EAD50, 0x1401EAD50, u64, i32, void *);
+FUNCTION_PTR (void, UpdatePerformerDisplay, 0x14020FBE0, u64, u64 performerCount, u64, bool);
 
 bool
 PVSelLoop (u64 This) {
@@ -323,9 +325,9 @@ PVSelLoop (u64 This) {
 
 	lastCover = *(i32 *)(This + 0xA8);
 
-	if (IsButtonTapped (inputState, Button::R2) && entry.has_value ()) {
-		bool moduleChanged = false;
-		auto score         = FindScore (GetSaveData (), entry.value ()->id);
+	if (IsButtonDown (inputState, Button::R3) && entry.has_value () && *(i32 *)((u64)GetSaveData () + 0x169410) != 3) {
+		*(i32 *)((u64)GetSaveData () + 0x169410) = 3;
+		auto score                               = FindScore (GetSaveData (), entry.value ()->id);
 		for (u64 i = 0; i < entry.value ()->performers.length (); i++) {
 			auto performer = entry.value ()->performers.at (i).value ();
 			if (performer->fixed) continue;
@@ -350,22 +352,13 @@ PVSelLoop (u64 This) {
 			save_data->accessory_chest = performer->item[2];
 			save_data->accessory_back  = performer->item[3];
 			save_data->hair            = -1;
-
-			auto oldModule = (ModuleData *)(This + 0x36A68 + (i * sizeof (ModuleData)));
-			if (module->id == oldModule->id) continue;
-
-			if (oldModule->cos != 0) UnloadSprSet (oldModule->sprSetId);
-			stringRange name_range (8);
-			LoadSprSet (module->sprSetId, &name_range);
-
-			oldModule->id       = module->id;
-			oldModule->cos      = module->cos;
-			oldModule->sprSetId = module->sprSetId;
-			oldModule->spriteId = module->spriteId;
-			moduleChanged       = true;
 		}
 
-		if (moduleChanged) PlaySoundEffect ("se_ft_sys_enter_01", 1.0);
+		FUN1401EAD50 (0x141750890, *(i32 *)(This + 0x373DC), nullptr);
+		auto performerCount = std::count_if (entry.value ()->performers.begin (), entry.value ()->performers.end (), [] (auto &it) { return !it.fixed; });
+		UpdatePerformerDisplay (This + 0x55E8, performerCount, This + 0x36a68, true);
+
+		PlaySoundEffect ("se_ft_sys_enter_01", 1.0);
 	}
 
 	return false;
