@@ -451,9 +451,14 @@ std::map<std::string, std::set<i32>> ModSongs;
 std::vector<std::string> ModSongIndicies;
 vector<PvSelData *> FilteredSongs;
 PvSelData randomData;
+bool initing;
 
 HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 	if (*(i32 *)(a1 + 0x373E0) != 4) return originalCreateSortedPVList (a1);
+	else if (initing) {
+		initing = false;
+		return;
+	}
 
 	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
 	auto diff  = (i32 *)(a1 + 0x373F8);
@@ -670,11 +675,35 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 }
 
 HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
-	if (*(u32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalUpdatePvListData (a1);
-	if (ModdedIndex != (i32)ModSongs.size () + 1) return;
+	if ((*(u32 *)(a1 + 0x373E0) != 4 && !initing) || IsSurvival ()) return originalUpdatePvListData (a1);
+	if (ModdedIndex != (i32)ModSongs.size () + 1 && !initing) return;
 
-	whereCreateSortedPVList (a1);
-	*(i32 *)(a1 + 0x373E0) = 4;
+	if (initing) {
+		*(i32 **)(a1 + 0x373D0) = &SortIndex;
+		*(i32 *)(a1 + 0x373CC)  = 1;
+
+		initing                = false;
+		*(i32 *)(a1 + 0x373E0) = 4;
+		whereCreateSortedPVList (a1);
+		*(i32 *)(a1 + 0x373E0) = 4;
+		initing                = true;
+
+		auto diff  = (i32 *)(a1 + 0x373F8);
+		auto extra = (bool *)(a1 + 0x373FC);
+		auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
+
+		i32 totalCount = std::count_if (std::execution::par, songs->begin (), songs->end (), [&] (auto &it) {
+			if (!it.pv->pvData->HasDifficulty (*diff, *extra)) return false;
+			auto score           = FindScore (GetSaveData (), it.pv->pvData->id);
+			auto scoreDifficulty = GetScoreDifficulty (score, 0, *diff, *extra);
+			return IsScoreDifficultyUnlocked (scoreDifficulty);
+		});
+
+		*(i32 *)(a1 + 0x3737C) = totalCount;
+	} else {
+		whereCreateSortedPVList (a1);
+		*(i32 *)(a1 + 0x373E0) = 4;
+	}
 
 	auto id   = *(i32 *)(a1 + 0x36A30);
 	i32 index = *(i32 *)(a1 + 0x55E8);
@@ -695,7 +724,10 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 
 bool
 PvSelInit (u64 This) {
-	if (*(i32 *)(This + 0x373E0) == 4) *(i32 *)(This + 0x373E0) = 0;
+	if (*(u32 *)(This + 0x373E0) == 4) {
+		initing                  = true;
+		*(u32 *)(This + 0x373E0) = 0;
+	}
 	unhide ();
 	u64 pvLoadData = GetPvLoadData ();
 	if (pvLoadData) *(i32 *)(pvLoadData + 0x1D08) = -1;
