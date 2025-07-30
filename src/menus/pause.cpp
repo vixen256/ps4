@@ -24,7 +24,10 @@ HOOK (void, LoadPauseBackground, 0x1406570E0, u64 a1, bool playOut) {
 
 HOOK (i32 *, GetPauseTouched, 0x140659100, u64 a1, u64 a2, u64 a3) {
 	i32 *val = originalGetPauseTouched (a1, a2, a3);
-	if (diva::IsSurvival () && val[1] == 1 && val[0] == 1) val[1] = 0;
+	if (diva::IsSurvival () && val[0] == 1) {
+		val[0] = 22;
+		val[1] = 0;
+	}
 	return val;
 }
 
