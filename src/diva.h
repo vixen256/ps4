@@ -292,13 +292,15 @@ struct vector {
 			this->first        = allocate<T> (16);
 			this->last         = this->first;
 			this->capacity_end = (void *)((u64)this->first + (16 * sizeof (T)));
-			this->first[0]     = value;
+			memset ((void *)this->last, 0, sizeof (T));
+			*this->last = value;
 			this->last++;
 			return;
 		}
 
-		if (this->remaining_capcity () > 0) {
-			this->first[this->length ()] = value;
+		if (this->remaining_capcity () > 1) {
+			memset ((void *)this->last, 0, sizeof (T));
+			*this->last = value;
 			this->last++;
 			return;
 		}
@@ -306,7 +308,7 @@ struct vector {
 		u64 new_length = this->length () + (this->length () / 2);
 		T *new_first   = allocate<T> (new_length);
 		u64 old_length = (u64)this->last - (u64)this->first;
-		memcpy (new_first, this->first, old_length);
+		memcpy ((void *)new_first, (void *)this->first, old_length);
 		deallocate (this->first);
 
 		this->first        = new_first;
@@ -323,6 +325,12 @@ struct vector {
 
 	T *begin () { return this->first; }
 	T *end () { return this->last; }
+
+	void operator= (vector<T> other) {
+		this->clear ();
+		for (auto it = other.begin (); it != other.end (); it++)
+			this->push_back (*it);
+	}
 };
 
 template <typename T>
@@ -1098,6 +1106,11 @@ struct PvSpriteId {
 	u32 thumbId[4];
 };
 
+struct SurvivalSong {
+	i32 id;
+	i32 difficulty;
+	i32 edition;
+};
 #pragma pack(pop)
 
 extern vector<PvDbEntry *> *pvs;
