@@ -440,7 +440,6 @@ struct PvSelData {
 };
 
 FUNCTION_PTR (void, UpdateSongListPlaceholders, 0x140211D00, u64 a1, u64 a2);
-FUNCTION_PTR (void, DisplaySongList, 0x1402066C0, u64 a1, bool, bool, bool);
 
 const char *SortLayerName = "sort_set_mod";
 i32 SortIndex             = 0;
@@ -455,12 +454,25 @@ bool initing;
 bool wantsModded;
 i32 lastIndex = 0;
 
-HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
-	if (*(i32 *)(a1 + 0x373E0) != 4 || IsSurvival ()) return originalCreateSortedPVList (a1);
+HOOK (void, DisplaySongList, 0x1402066C0, u64 a1, bool a2, bool a3, bool a4) {
+	if (wantsModded) *(i32 *)(a1 + 0x373E0) = 4;
+	return originalDisplaySongList (a1, a2, a3, a4);
+}
 
-	auto songs = *(vector<PvSelData> **)(a1 + 0x37308);
-	auto diff  = (i32 *)(a1 + 0x373F8);
-	auto extra = (bool *)(a1 + 0x373FC);
+HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
+	if (IsSurvival ()) {
+		*(vector<PvSelData *> **)(a1 + 0x36FD8) = nullptr;
+		return originalCreateSortedPVList (a1);
+	}
+	if (*(i32 *)(a1 + 0x373E0) != 4) {
+		wantsModded = false;
+		return originalCreateSortedPVList (a1);
+	}
+
+	auto diff                             = (i32 *)(a1 + 0x373F8);
+	auto extra                            = (bool *)(a1 + 0x373FC);
+	*(vector<PvSelData> **)(a1 + 0x37308) = (vector<PvSelData> *)(a1 + (*diff * 2 + 0x24AB + *extra) * 0x18);
+	auto songs                            = *(vector<PvSelData> **)(a1 + 0x37308);
 
 	FilteredSongs.clear ();
 	while (FilteredSongs.length () == 0) {
@@ -536,6 +548,7 @@ HOOK (void, CreateSortedPVList, 0x140206C30, u64 a1) {
 
 	// For new classics
 	*(i32 *)(a1 + 0x373E0) = 0;
+	wantsModded            = true;
 }
 
 HOOK (void, ChangeSort, 0x140207650, u64 a1) {
@@ -550,9 +563,8 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 	*(i32 **)(a1 + 0x373D0) = &SortIndex;
 	*(i32 *)(a1 + 0x373CC)  = 1;
 
-	auto diff                             = (i32 *)(a1 + 0x373F8);
-	auto extra                            = (bool *)(a1 + 0x373FC);
-	*(vector<PvSelData> **)(a1 + 0x37308) = (vector<PvSelData> *)(a1 + (*diff * 2 + 0x24AB + *extra) * 0x18);
+	auto diff  = (i32 *)(a1 + 0x373F8);
+	auto extra = (bool *)(a1 + 0x373FC);
 
 	FilteredSongs.clear ();
 	while (FilteredSongs.length () <= 1) {
@@ -576,7 +588,7 @@ HOOK (void, ChangeSort, 0x140207650, u64 a1) {
 
 	*(i32 *)(a1 + 0x3737C) = totalCount;
 
-	DisplaySongList (a1, true, false, true);
+	originalDisplaySongList (a1, true, false, true);
 }
 
 HOOK (void, ChangeFilter, 0x1402078D0, u64 a1, i32 direction) {
@@ -607,7 +619,7 @@ HOOK (void, ChangeFilter, 0x1402078D0, u64 a1, i32 direction) {
 
 	*(i32 *)(a1 + 0x3737C) = totalCount;
 
-	DisplaySongList (a1, true, true, true);
+	originalDisplaySongList (a1, true, true, true);
 }
 
 HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
@@ -669,7 +681,7 @@ HOOK (void, ChangeDiff, 0x140207550, u64 a1, i32 direction) {
 
 	*(i32 *)(a1 + 0x3737C) = totalCount;
 
-	DisplaySongList (a1, false, false, true);
+	originalDisplaySongList (a1, false, false, true);
 }
 
 HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
@@ -682,7 +694,8 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 	if (ModdedIndex != (i32)ModSongs.size () + 1 && !initing) return;
 
 	if (initing) {
-		initing = false;
+		initing     = false;
+		wantsModded = false;
 
 		*(i32 **)(a1 + 0x373D0) = &SortIndex;
 		*(i32 *)(a1 + 0x373CC)  = 1;
@@ -727,7 +740,7 @@ HOOK (void, UpdatePvListData, 0x140207AB0, u64 a1) {
 		UpdateSongListPlaceholders (a1 + 0x55E8, a1 + 0x36EE8);
 	}
 
-	DisplaySongList (a1, false, false, true);
+	originalDisplaySongList (a1, false, false, true);
 }
 
 bool
@@ -882,5 +895,6 @@ init () {
 	INSTALL_HOOK (UpdatePvListData);
 	INSTALL_HOOK (CreateSortedPVList);
 	INSTALL_HOOK (PvDbRead);
+	INSTALL_HOOK (DisplaySongList);
 }
 } // namespace pvSel
