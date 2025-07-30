@@ -325,7 +325,7 @@ PVSelLoop (u64 This) {
 
 	lastCover = *(i32 *)(This + 0xA8);
 
-	if (IsButtonDown (inputState, Button::R3) && entry.has_value () && *(i32 *)((u64)GetSaveData () + 0x169410) != 3) {
+	if (IsButtonDown (inputState, Button::R3) && !IsButtonTapped (inputState, Button::R3) && entry.has_value () && *(i32 *)((u64)GetSaveData () + 0x169410) != 3) {
 		*(i32 *)((u64)GetSaveData () + 0x169410) = 3;
 		auto score                               = FindScore (GetSaveData (), entry.value ()->id);
 		for (u64 i = 0; i < entry.value ()->performers.length (); i++) {

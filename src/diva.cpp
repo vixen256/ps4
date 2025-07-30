@@ -169,8 +169,10 @@ getClickedPos (void *inputState) {
 
 	RECT rect;
 	GetClientRect (FindWindow ("DIVAMIXP", 0), &rect);
-	float x = initialVec.x / (float)rect.right * 1920;
-	float y = initialVec.y / (float)rect.bottom * 1080;
+	if ((f32)rect.right / (f32)rect.bottom > 16.0 / 9.0) rect.right = (f32)rect.bottom / 9.0 * 16.0;
+	else if ((f32)rect.right / (f32)rect.bottom < 16.0 / 9.0) rect.bottom = (f32)rect.right / 16.0 * 9.0;
+	f32 x = initialVec.x / (f32)rect.right * 1920.0;
+	f32 y = initialVec.y / (f32)rect.bottom * 1080.0;
 
 	return Vec2 (x, y);
 }
