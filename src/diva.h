@@ -287,7 +287,7 @@ struct vector {
 		return std::optional (&this->first[index]);
 	}
 
-	void push_back (T value) {
+	void push_back (const T &value) {
 		if (this->first == nullptr) {
 			this->first        = allocate<T> (16);
 			this->last         = this->first;
@@ -298,7 +298,7 @@ struct vector {
 			return;
 		}
 
-		if (this->remaining_capcity () > 1) {
+		if (this->remaining_capcity () > 0) {
 			memset ((void *)this->last, 0, sizeof (T));
 			*this->last = value;
 			this->last++;
@@ -326,9 +326,9 @@ struct vector {
 	T *begin () { return this->first; }
 	T *end () { return this->last; }
 
-	void operator= (vector<T> other) {
+	void operator= (const vector<T> &other) {
 		this->clear ();
-		for (auto it = other.begin (); it != other.end (); it++)
+		for (auto it = other.first; it != other.last; it++)
 			this->push_back (*it);
 	}
 };
