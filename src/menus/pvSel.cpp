@@ -550,6 +550,11 @@ HOOK (void, GetSurvivalSprite, 0x140211720, u64 a1, u32 *dummySprId, u32 *sprId,
 	*index = realIndex;
 }
 
+HOOK (const char *, chara_index_get_chara_name, 0x1404de4b0, i32 index) {
+	if (index == -1) return "NONE";
+	else return originalchara_index_get_chara_name (index);
+}
+
 void
 init () {
 	taskAddition addition;
@@ -564,5 +569,6 @@ init () {
 
 	INSTALL_HOOK (PvDbRead);
 	INSTALL_HOOK (GetSurvivalSprite);
+	INSTALL_HOOK (chara_index_get_chara_name);
 }
 } // namespace pvSel
