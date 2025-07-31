@@ -1,4 +1,5 @@
 #include "diva.h"
+#include "nc.h"
 
 namespace pvSel {
 typedef enum Style : i32 {
@@ -433,6 +434,7 @@ PvSelDestroy (u64 This) {
 
 bool readSurvivalDb = false;
 std::map<i32, i32> survivalIndexIds;
+std::map<i32, nc::GameStyle> survivalIdStyles;
 std::vector<u32> pendingSprSets;
 
 void
@@ -446,9 +448,15 @@ loadSprSetWait () {
 }
 
 HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
-	auto res = originalPvDbRead (task);
+	auto res      = originalPvDbRead (task);
+	auto nc       = GetModuleHandle ("NewClassics.dll");
+	bool ncLoaded = true;
+	if (nc) {
+		auto DbReady = (nc::DbReady)GetProcAddress (nc, "DbReady");
+		if (DbReady) ncLoaded = DbReady ();
+	}
 
-	if (*(i32 *)(task + 0x68) == 0 && !readSurvivalDb && *(i32 *)(0x140DAB380 + 0x70) == 3) {
+	if (*(i32 *)(task + 0x68) == 0 && !readSurvivalDb && *(i32 *)(0x140DAB380 + 0x70) == 3 && ncLoaded) {
 		readSurvivalDb = true;
 
 		std::map<i32, vector<SurvivalSong>> courses;
@@ -470,10 +478,17 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 				auto course = toml_table_at (tomlCourses, i);
 				if (!course) break;
 
-				auto id    = toml_int_in (course, "id");
-				auto songs = toml_array_in (course, "songs");
+				auto id       = toml_int_in (course, "id");
+				auto nc_style = toml_string_in (course, "nc_style");
+				auto songs    = toml_array_in (course, "songs");
 				if (!id.ok || !songs || courses.contains (id.u.i)) continue;
 				courses[id.u.i] = vector<SurvivalSong> (10);
+
+				nc::GameStyle style = nc::GameStyle_Arcade;
+				if (nc_style.ok) {
+					if (strcmp (nc_style.u.s, "CONSOLE") == 0) style = nc::GameStyle_Console;
+					else if (strcmp (nc_style.u.s, "MIXED") == 0) style = nc::GameStyle_Mixed;
+				}
 
 				for (int j = 0;; j++) {
 					auto song = toml_table_at (songs, j);
@@ -489,13 +504,23 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 					survival.difficulty = difficulty.u.i;
 					survival.edition    = extra.ok ? extra.u.b ? 1 : 0 : 0;
 					auto entry          = getPvDbEntry (survival.id);
-					if (entry.has_value () && entry.value ()->HasDifficulty (survival.difficulty, survival.edition)) courses[id.u.i].push_back (survival);
+					if (entry.has_value () && entry.value ()->HasDifficulty (survival.difficulty, survival.edition)) {
+						if (nc && style != 0) {
+							auto CheckSongHasStyleAvailable = (nc::CheckSongHasStyleAvailable)GetProcAddress (nc, "CheckSongHasStyleAvailable");
+							if (CheckSongHasStyleAvailable != nullptr) {
+
+								if (CheckSongHasStyleAvailable (survival.id, survival.difficulty, survival.edition, style)) courses[id.u.i].push_back (survival);
+							}
+						} else courses[id.u.i].push_back (survival);
+					}
 				}
 
 				if (courses[id.u.i].length () == 0) {
 					courses.erase (id.u.i);
 					continue;
 				}
+
+				if (nc) survivalIdStyles[id.u.i] = style;
 
 				char sprBuf[64];
 				u32 set;
@@ -555,6 +580,37 @@ HOOK (const char *, chara_index_get_chara_name, 0x1404de4b0, i32 index) {
 	else return originalchara_index_get_chara_name (index);
 }
 
+HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a3) {
+	originalSetPvLoadData (PvLoadData, info, a3);
+	if (IsSurvival () && survivalIdStyles.size () > 0) {
+		auto nc = GetModuleHandle ("NewClassics.dll");
+		if (!nc) return;
+
+		auto FindSongEntry = (nc::FindSongEntry)GetProcAddress (nc, "FindSongEntry");
+		auto FindChart     = (nc::FindChart)GetProcAddress (nc, "FindChart");
+		auto GetState      = (nc::GetState)GetProcAddress (nc, "GetState");
+		if (!FindSongEntry || !FindChart || !GetState) return;
+
+		auto index = *(i32 *)0x140DAB3A8;
+		if (!survivalIndexIds.contains (index)) return;
+		i32 id = survivalIndexIds[index];
+		if (!survivalIdStyles.contains (id)) return;
+
+		auto style = survivalIdStyles[id];
+		auto state = GetState ();
+		auto song  = FindSongEntry (info->pvId);
+		auto chart = FindChart (info->pvId, info->difficulty, info->extra, style);
+
+		if (!state || !song || !chart) return;
+
+		state->nc_song_entry.value    = *song;
+		state->nc_song_entry.hasValue = true;
+
+		state->nc_chart_entry.value    = *chart;
+		state->nc_chart_entry.hasValue = true;
+	}
+}
+
 void
 init () {
 	taskAddition addition;
@@ -570,5 +626,6 @@ init () {
 	INSTALL_HOOK (PvDbRead);
 	INSTALL_HOOK (GetSurvivalSprite);
 	INSTALL_HOOK (chara_index_get_chara_name);
+	INSTALL_HOOK (SetPvLoadData);
 }
 } // namespace pvSel

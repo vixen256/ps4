@@ -1,5 +1,7 @@
 #pragma once
 namespace diva {
+#pragma pack(push, 8)
+
 struct Vec2 {
 	f32 x;
 	f32 y;
@@ -86,7 +88,6 @@ deallocate (void *p) {
 	operatorDelete (p);
 }
 
-#pragma pack(push, 8)
 struct string {
 	union {
 		char data[16];
@@ -304,17 +305,6 @@ struct vector {
 			this->last++;
 			return;
 		}
-
-		u64 new_length = this->length () + (this->length () / 2);
-		T *new_first   = allocate<T> (new_length);
-		u64 old_length = (u64)this->last - (u64)this->first;
-		memcpy ((void *)new_first, (void *)this->first, old_length);
-		deallocate (this->first);
-
-		this->first        = new_first;
-		this->last         = (T *)((u64)new_first + old_length);
-		this->capacity_end = (void *)((u64)new_first + (new_length * sizeof (T)));
-		this->push_back (value);
 	}
 
 	void clear () { this->last = this->first; }
@@ -325,6 +315,19 @@ struct vector {
 
 	T *begin () { return this->first; }
 	T *end () { return this->last; }
+
+	void reserve (u64 n) {
+		if (this->capacity () > n) return;
+
+		T *new_first   = allocate<T> (n);
+		u64 old_length = (u64)this->last - (u64)this->first;
+		memcpy ((void *)new_first, (void *)this->first, old_length);
+		deallocate (this->first);
+
+		this->first        = new_first;
+		this->last         = (T *)((u64)new_first + old_length);
+		this->capacity_end = (void *)((u64)new_first + (n * sizeof (T)));
+	}
 
 	void operator= (const vector<T> &other) {
 		this->clear ();
@@ -355,6 +358,24 @@ struct _stringRangeBase {
 };
 using stringRange  = _stringRangeBase<char>;
 using wstringRange = _stringRangeBase<wchar_t>;
+
+template <typename T>
+struct optional {
+	T value;
+	bool hasValue;
+};
+
+template <typename T>
+struct shared_ptr {
+	T *ptr;
+	u32 uses;
+	u32 weaks;
+};
+
+template <typename T, u64 size>
+struct array {
+	T elems[size];
+};
 
 enum class State : i32 {
 	STARTUP     = 0,
@@ -1110,6 +1131,26 @@ struct SurvivalSong {
 	i32 id;
 	i32 difficulty;
 	i32 edition;
+};
+
+struct PvLoadInfo {
+	i32 pvId;
+	i32 version;
+	i32 difficulty;
+	i32 extra;
+	i32 level;
+	u8 unk_0x14;
+	i32 pvId2;
+	i32 unk_0x1C;
+	u8 unk_0x20;
+	u8 unk_0x21;
+	i32 unk_0x24;
+	u8 unk_0x28;
+	i32 modifier;
+	i32 modules[6];
+	i32 unk_0x48[6];
+	i32 accessories[6][5];
+	bool accessories_enabled[6][5];
 };
 #pragma pack(pop)
 
