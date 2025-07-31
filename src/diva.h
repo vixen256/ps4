@@ -1163,6 +1163,8 @@ FUNCTION_PTR_H (bool, LoadSprSetFinish, i32 id);
 FUNCTION_PTR_H (void, UnloadAetSet, i32 id);
 FUNCTION_PTR_H (void, UnloadSprSet, i32 id);
 FUNCTION_PTR_H (bool, ResolveFilePath, string *from, string *out);
+FUNCTION_PTR_H (u32 *, getSpriteId, void *a1, stringRange *name);
+FUNCTION_PTR_H (u32 *, getSprSetId, void *a1, stringRange *name);
 
 void appendThemeInPlace (char *name);
 char *appendTheme (const char *name);

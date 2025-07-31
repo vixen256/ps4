@@ -433,14 +433,23 @@ PvSelDestroy (u64 This) {
 
 bool readSurvivalDb = false;
 std::map<i32, i32> survivalIndexIds;
+std::vector<u32> pendingSprSets;
+
+void
+loadSprSetWait () {
+	while (pendingSprSets.size () > 0) {
+		for (auto it = pendingSprSets.begin (); it != pendingSprSets.end ();)
+			if (LoadSprSetFinish (*it) == 0) it = pendingSprSets.erase (it);
+			else it++;
+		std::this_thread::sleep_for (std::chrono::milliseconds (16));
+	}
+}
 
 HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 	auto res = originalPvDbRead (task);
 
 	if (*(i32 *)(task + 0x68) == 0 && !readSurvivalDb && *(i32 *)(0x140DAB380 + 0x70) == 3) {
 		readSurvivalDb = true;
-
-		auto survivalCourses = (vector<vector<SurvivalSong>> *)(0x140DAB380 + 0x48);
 
 		std::map<i32, vector<SurvivalSong>> courses;
 		for (auto it = romDirs->begin (); it != romDirs->end (); it++) {
@@ -463,7 +472,7 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 
 				auto id    = toml_int_in (course, "id");
 				auto songs = toml_array_in (course, "songs");
-				if (!id.ok || !songs) continue;
+				if (!id.ok || !songs || courses.contains (id.u.i)) continue;
 				courses[id.u.i] = vector<SurvivalSong> (10);
 
 				for (int j = 0;; j++) {
@@ -483,10 +492,33 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 					if (entry.has_value () && entry.value ()->HasDifficulty (survival.difficulty, survival.edition)) courses[id.u.i].push_back (survival);
 				}
 
-				if (courses[id.u.i].length () == 0) courses.erase (id.u.i);
+				if (courses[id.u.i].length () == 0) {
+					courses.erase (id.u.i);
+					continue;
+				}
+
+				char sprBuf[64];
+				u32 set;
+				stringRange name;
+
+				sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02lld", id.u.i);
+				name = stringRange (sprBuf);
+				set  = *getSprSetId (nullptr, &name);
+				if (set == (u32)-1) continue;
+
+				name = stringRange ();
+				LoadSprSet (set, &name);
+
+				pendingSprSets.push_back (set);
 			}
 		}
 
+		if (pendingSprSets.size () > 0) {
+			std::thread t (loadSprSetWait);
+			t.detach ();
+		}
+
+		auto survivalCourses = (vector<vector<SurvivalSong>> *)(0x140DAB380 + 0x48);
 		for (auto it = courses.begin (); it != courses.end (); it++) {
 			survivalIndexIds[survivalCourses->length ()] = it->first;
 			survivalCourses->push_back (it->second);
@@ -494,6 +526,28 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 	}
 
 	return res;
+}
+
+HOOK (void, GetSurvivalSprite, 0x140211720, u64 a1, u32 *dummySprId, u32 *sprId, u32 *index, i32 currentIndex, u32 offset) {
+	auto survivalCourses = (vector<vector<SurvivalSong>> *)(0x140DAB380 + 0x48);
+	i32 realIndex        = currentIndex + offset;
+	if (realIndex < 0) realIndex += survivalCourses->length ();
+	if (!survivalIndexIds.contains (realIndex)) return originalGetSurvivalSprite (a1, dummySprId, sprId, index, currentIndex, offset);
+
+	i32 id = survivalIndexIds[realIndex];
+	char sprBuf[64];
+	stringRange name;
+
+	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_SEL", id);
+	name   = stringRange (sprBuf);
+	*sprId = *getSpriteId (nullptr, &name);
+	if (*sprId == (u32)-1) return originalGetSurvivalSprite (a1, dummySprId, sprId, index, currentIndex, offset);
+
+	sprintf (sprBuf, "SPR_PS4_MENU_SORT_SURVIVAL_DUMMY_%02d", offset);
+	name        = stringRange (sprBuf);
+	*dummySprId = *getSpriteId (nullptr, &name);
+
+	*index = realIndex;
 }
 
 void
@@ -509,5 +563,6 @@ init () {
 	INSTALL_HOOK (GetListNumAllData);
 
 	INSTALL_HOOK (PvDbRead);
+	INSTALL_HOOK (GetSurvivalSprite);
 }
 } // namespace pvSel

@@ -6,6 +6,7 @@ namespace pvSel {
 void init ();
 void hide ();
 void unhide ();
+extern std::map<i32, i32> survivalIndexIds;
 } // namespace pvSel
 namespace gallery {
 void init ();

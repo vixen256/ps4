@@ -1,4 +1,5 @@
 #include "diva.h"
+#include "menus.h"
 #include "steam.h"
 
 namespace leaderboard {
@@ -653,9 +654,13 @@ SurvivalInit (u64 task) {
 
 bool
 SurvivalLoop (u64 task) {
-	i32 state          = *(i32 *)(task + 0x180);
-	i32 selectedCourse = *(i32 *)(task + 0x188);
-	i32 filter         = *(i32 *)(task + 0x288);
+	i32 state       = *(i32 *)(task + 0x180);
+	i32 courseIndex = *(i32 *)(task + 0x188);
+	i32 filter      = *(i32 *)(task + 0x288);
+
+	i32 selectedCourse = 0;
+	if (pvSel::survivalIndexIds.contains (courseIndex)) selectedCourse = pvSel::survivalIndexIds.find (courseIndex)->second;
+	else selectedCourse = courseIndex;
 
 	if (state == 1 && leaderboardManager == nullptr) {
 		leaderboardManager = new LeaderboardDownloadManager ();
@@ -786,6 +791,19 @@ SurvivalDisplay (u64 task) {
 	return false;
 }
 
+HOOK (i32, GetSurvivalSprId, 0x1401C5C60, i32 index) {
+	if (!pvSel::survivalIndexIds.contains (index)) return originalGetSurvivalSprId (index);
+	i32 id = pvSel::survivalIndexIds[index];
+	char sprBuf[64];
+	stringRange name;
+
+	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_SEL", id);
+	name      = stringRange (sprBuf);
+	u32 sprId = *getSpriteId (nullptr, &name);
+	if (sprId == (u32)-1) return originalGetSurvivalSprId (index);
+	else return sprId;
+}
+
 void
 init () {
 	taskAddition hiscore;
@@ -806,6 +824,7 @@ init () {
 	survival.loop    = SurvivalLoop;
 	survival.display = SurvivalDisplay;
 	addTaskAddition ("CS_RANKING_SURVIVAL", survival);
-}
 
+	INSTALL_HOOK (GetSurvivalSprId);
+}
 } // namespace leaderboard

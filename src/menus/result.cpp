@@ -1,4 +1,5 @@
 #include "diva.h"
+#include "menus.h"
 #include "steam.h"
 
 namespace result {
@@ -31,7 +32,10 @@ StageResultInit (u64 task) {
 	if (*(bool *)(0x1412B50A5) && !GetModuleHandleA ("LeaderboardBlocker.dll")) {
 		if (IsSurvival ()) {
 			if (SurvivalCleared ()) {
-				auto id = *(i32 *)0x140DAB3A8;
+				auto index = *(i32 *)0x140DAB3A8;
+				auto id    = 0;
+				if (pvSel::survivalIndexIds.contains (index)) id = pvSel::survivalIndexIds.find (index)->second;
+				else id = index;
 
 				auto scores    = (vector<pair<i32, i32>> *)0x140DAB390;
 				i32 totalScore = 0;
