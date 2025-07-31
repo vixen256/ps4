@@ -202,6 +202,8 @@ RankingScroll (const char *prefix, std::vector<T> loaded) {
 
 		AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::LOOP);
 		down.play (&arrow_down_id);
+
+		PlaySoundEffect ("se_ft_sys_select_01", 1.0);
 	} else if (IsButtonDown (inputState, Button::DOWN) && currentSelected != loaded.size () - 1) {
 		currentSelected += 1;
 		if (currentLocalSelected == 9) {
@@ -237,6 +239,8 @@ RankingScroll (const char *prefix, std::vector<T> loaded) {
 			AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::SPECIAL_LOOP);
 			down.play (&arrow_down_id);
 		}
+
+		PlaySoundEffect ("se_ft_sys_select_01", 1.0);
 	}
 }
 
