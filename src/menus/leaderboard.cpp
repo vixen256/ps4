@@ -42,7 +42,7 @@ u64 currentLocalSelected;
 u64 offset;
 
 void
-RankingLoadBase (const char *prefix) {
+RankingInit (const char *prefix) {
 	char layer_buf[64];
 
 	sprintf (layer_buf, "%s_base", prefix);
@@ -52,9 +52,6 @@ RankingLoadBase (const char *prefix) {
 	sprintf (layer_buf, "%s_my_base", prefix);
 	AetLayerArgs my ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::IN_LOOP);
 	my.play (&my_id);
-
-	AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
-	load.play (&load_id);
 
 	AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
 	up.play (&arrow_up_id);
@@ -68,7 +65,7 @@ RankingLoadBase (const char *prefix) {
 	for (int i = 0; i < 10; i++) {
 		sprintf (buf, "p_%s_base%02d_c", prefix, i + 1);
 		if (auto layout = comp.find (string (buf))) {
-			sprintf (layer_buf, "%s_base_03", prefix);
+			sprintf (layer_buf, "%s_%s", prefix, i % 2 == 0 ? "base_02" : "base_01");
 			AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
 			entry.position = layout.value ()->position;
 			entry.color.w  = layout.value ()->opacity;
@@ -78,13 +75,19 @@ RankingLoadBase (const char *prefix) {
 }
 
 void
+RankingLoadBase (const char *prefix) {
+	AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x17, AetAction::IN_LOOP);
+	load.play (&load_id);
+}
+
+void
 RankingLoadedNone (const char *prefix) {
 	char layer_buf[64];
 
 	StopAet (&load_id);
 
 	sprintf (layer_buf, "%s_my_none", prefix);
-	AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x15, AetAction::LOOP);
+	AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x17, AetAction::LOOP);
 	me_none.play (&my_none_id);
 
 	char buf[64];
@@ -128,7 +131,7 @@ RankingLoaded (const char *prefix, std::vector<T> loaded) {
 	if ((!personalLeaderboardManager->GetScores ().has_value () || personalLeaderboardManager->GetScores ().value ().size () == 0) &&
 	    (!personalLeaderboardManager->GetAchievements ().has_value () || personalLeaderboardManager->GetAchievements ().value ().size () == 0)) {
 		sprintf (layer_buf, "%s_my_none", prefix);
-		AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x15, AetAction::LOOP);
+		AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x17, AetAction::LOOP);
 		me_none.play (&my_none_id);
 	} else {
 		StopAet (&my_none_id);
@@ -151,9 +154,36 @@ RankingLoaded (const char *prefix, std::vector<T> loaded) {
 
 void
 RankingReload (const char *prefix) {
-	AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x15, AetAction::IN_LOOP);
+	AetLayerArgs load ("AET_PS4_GALLERY_MAIN", "hiscore_load", 0x17, AetAction::IN_LOOP);
 	load.play (&load_id);
 	StopAet (&cursor_id);
+	StopAet (&my_none_id);
+
+	char layer_buf[64];
+
+	sprintf (layer_buf, "%s_my_base", prefix);
+	AetLayerArgs my ("AET_PS4_GALLERY_MAIN", layer_buf, 0x13, AetAction::LOOP);
+	my.play (&my_id);
+
+	AetLayerArgs up ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_u", 0x13, AetAction::IN_ONCE);
+	up.play (&arrow_up_id);
+
+	AetLayerArgs down ("AET_PS4_GALLERY_MAIN", "hiscore_base_arrow_d", 0x13, AetAction::IN_ONCE);
+	down.play (&arrow_down_id);
+
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
+	for (int i = 0; i < 10; i++) {
+		sprintf (buf, "p_%s_base%02d_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			sprintf (layer_buf, "%s_%s", prefix, i % 2 == 0 ? "base_02" : "base_01");
+			AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
+			entry.position = layout.value ()->position;
+			entry.color.w  = layout.value ()->opacity;
+			entry.play (&entries_id[i]);
+		}
+	}
 
 	currentSelected      = 0;
 	currentLocalSelected = 0;
@@ -183,7 +213,7 @@ RankingScroll (const char *prefix, std::vector<T> loaded) {
 			for (u64 i = 0; i < 10; i++) {
 				sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
 				if (auto layout = comp.find (string (buf))) {
-					sprintf (layer_buf, "%s_%s", prefix, loaded.size () <= i ? "base_03" : i % 2 == 0 ? "base_01" : "base_02");
+					sprintf (layer_buf, "%s_%s", prefix, loaded.size () <= i ? "base_03" : i % 2 == 0 ? "base_02" : "base_01");
 					AetLayerArgs entry ("AET_PS4_GALLERY_MAIN", layer_buf, 0x14, AetAction::NONE);
 					entry.position = layout.value ()->position;
 					entry.color.w  = layout.value ()->opacity;
@@ -263,6 +293,13 @@ RankingDisplay (const char *prefix, T data, u64 i) {
 	AetComposition comp;
 	GetComposition (&comp, base_id);
 
+	sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
+	auto layer  = aets->find (entries_id[i]);
+	auto layout = comp.find (string (buf));
+	if (!layout.has_value () || !layer.has_value ()) return;
+	layer.value ()->position = layout.value ()->position;
+	layer.value ()->color.w  = layout.value ()->opacity;
+
 	sprintf (buf, "p_%s_grade%02lld_c", prefix, i + 1);
 	if (auto layout = comp.find (string (buf))) {
 		auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
@@ -298,6 +335,68 @@ RankingDisplay (const char *prefix, T data, u64 i) {
 }
 
 void
+RankingDisplayNone (const char *prefix) {
+	for (u64 i = 0; i < 10; i++) {
+
+		FontInfo font;
+		GetSpriteFont (&font, 0xBE37, 38, 46);
+		SetFontSize (&font, 26.0, 30.0);
+
+		DrawParams params;
+		params.font           = &font;
+		params.layer          = 0x16;
+		params.resolutionMode = RESOLUTION_MODE_FHD;
+		params.colour[0]      = 0xFF;
+		params.colour[1]      = 0xFF;
+
+		params.colour[2] = 0xFF;
+		char buf[64];
+		AetComposition comp;
+		GetComposition (&comp, base_id);
+
+		sprintf (buf, "p_%s_base%02lld_c", prefix, i + 1);
+		auto layer  = aets->find (entries_id[i]);
+		auto layout = comp.find (string (buf));
+		if (!layout.has_value () || !layer.has_value ()) continue;
+		layer.value ()->position = layout.value ()->position;
+		layer.value ()->color.w  = layout.value ()->opacity;
+
+		sprintf (buf, "p_%s_grade%02lld_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "-");
+		}
+
+		sprintf (buf, "p_%s_rank%02lld_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "--");
+		}
+
+		GetLangFont (&font, FontId::BOLD36LATIN9_DIVA_36_38, false);
+		SetFontSize (&font, 36.0, 38.0);
+		params.colour[0] = 0x36;
+		params.colour[1] = 0x46;
+		params.colour[2] = 0x49;
+
+		sprintf (buf, "p_%s_id%02lld_c", prefix, i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "----------------");
+		}
+	}
+}
+
+void
 RankingStop () {
 	currentSelected      = 0;
 	currentLocalSelected = 0;
@@ -318,6 +417,7 @@ bool
 HiScoreInit (u64 task) {
 	lastDiff   = 0;
 	lastFilter = 0;
+	RankingInit ("hiscore");
 
 	return false;
 }
@@ -381,7 +481,8 @@ HiScoreLoop (u64 task) {
 		delete leaderboardManager;
 		personalLeaderboardManager = nullptr;
 
-		RankingStop ();
+		RankingReload ("hiscore");
+		StopAet (&load_id);
 	}
 
 	return false;
@@ -389,79 +490,108 @@ HiScoreLoop (u64 task) {
 
 bool
 HiScoreDisplay (u64 task) {
-	i32 state = *(i32 *)(task + 0x6C);
-	if (state == 2 || state == 3) {
-		FontInfo font;
-		GetSpriteFont (&font, 0xBE37, 38, 46);
-		SetFontSize (&font, 26.0, 30.0);
+	FontInfo font;
+	GetSpriteFont (&font, 0xBE37, 38, 46);
+	SetFontSize (&font, 26.0, 30.0);
 
-		DrawParams params;
-		params.font           = &font;
-		params.layer          = 0x16;
-		params.resolutionMode = RESOLUTION_MODE_FHD;
-		params.colour[0]      = 0xFF;
-		params.colour[1]      = 0xFF;
-		params.colour[2]      = 0xFF;
+	DrawParams params;
+	params.font           = &font;
+	params.layer          = 0x16;
+	params.resolutionMode = RESOLUTION_MODE_FHD;
+	params.colour[0]      = 0xFF;
+	params.colour[1]      = 0xFF;
+	params.colour[2]      = 0xFF;
 
-		char buf[64];
-		AetComposition comp;
-		GetComposition (&comp, base_id);
+	char buf[64];
+	AetComposition comp;
+	GetComposition (&comp, base_id);
 
-		sprintf (buf, "p_hiscore_base%02lld_c", currentLocalSelected + 1);
-		auto layer  = aets->find (cursor_id);
-		auto layout = comp.find (string (buf));
-		if (layout.has_value () && layer.has_value ()) {
-			layer.value ()->position = layout.value ()->position;
-			layer.value ()->color.w  = layout.value ()->opacity;
-		}
+	sprintf (buf, "p_hiscore_base%02lld_c", currentLocalSelected + 1);
+	auto layer  = aets->find (cursor_id);
+	auto layout = comp.find (string (buf));
+	if (layout.has_value () && layer.has_value ()) {
+		layer.value ()->position = layout.value ()->position;
+		layer.value ()->color.w  = layout.value ()->opacity;
+	}
 
+	if (leaderboardManager == nullptr || !leaderboardManager->GetScores ().has_value ()) {
 		for (u64 i = 0; i < 10; i++) {
-			sprintf (buf, "p_hiscore_base%02lld_c", i + 1);
-			auto layer  = aets->find (entries_id[i]);
-			auto layout = comp.find (string (buf));
-			if (!layout.has_value () || !layer.has_value ()) continue;
-			layer.value ()->position = layout.value ()->position;
-			layer.value ()->color.w  = layout.value ()->opacity;
-
-			if (leaderboardManager == nullptr) continue;
-			auto scores = leaderboardManager->GetScores ();
-			if (!scores.has_value () || scores.value ().size () <= i + offset) continue;
-			auto score = scores.value ().at (i + offset);
-
 			sprintf (buf, "p_hiscore_score%02lld_rt", i + 1);
 			if (auto layout = comp.find (string (buf))) {
 				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%06d", score.score);
+				DrawTextFmt (&params, 0x28, "------");
 			}
+		}
+		RankingDisplayNone ("hiscore");
+	}
 
-			RankingDisplay ("hiscore", score, i);
+	for (u64 i = 0; i < 10; i++) {
+		if (leaderboardManager == nullptr) continue;
+		auto scores = leaderboardManager->GetScores ();
+		if (!scores.has_value () || scores.value ().size () <= i + offset) continue;
+		auto score = scores.value ().at (i + offset);
+
+		sprintf (buf, "p_hiscore_score%02lld_rt", i + 1);
+		if (auto layout = comp.find (string (buf))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%06d", score.score);
 		}
 
-		if (personalLeaderboardManager != nullptr && personalLeaderboardManager->GetScores ().has_value () && personalLeaderboardManager->GetScores ().value ().size () == 1) {
-			StopAet (&my_none_id);
+		RankingDisplay ("hiscore", score, i);
+	}
 
-			GetComposition (&comp, my_id);
+	if (personalLeaderboardManager != nullptr && personalLeaderboardManager->GetScores ().has_value () && personalLeaderboardManager->GetScores ().value ().size () == 1) {
+		StopAet (&my_none_id);
 
-			if (auto layout = comp.find (string ("p_hiscore_my_score01_rt"))) {
-				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
-				params.lineOrigin  = position;
-				params.textCurrent = position;
-				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%06d", personalLeaderboardManager->GetScores ().value ().front ().score);
-			}
+		GetComposition (&comp, my_id);
 
-			if (auto layout = comp.find (string ("p_hiscore_my_grade01_c"))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
-				params.lineOrigin  = position;
-				params.textCurrent = position;
-				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
-			}
+		if (auto layout = comp.find (string ("p_hiscore_my_score01_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%06d", personalLeaderboardManager->GetScores ().value ().front ().score);
+		}
+
+		if (auto layout = comp.find (string ("p_hiscore_my_grade01_c"))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+		}
+	} else {
+		GetComposition (&comp, my_id);
+
+		if (auto layout = comp.find (string ("p_hiscore_my_score01_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.0, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "------");
+		}
+
+		if (auto layout = comp.find (string ("p_hiscore_my_grade01_c"))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "-");
 		}
 	}
+
+	return false;
+}
+
+bool
+HiScoreDestroy (u64 task) {
+	RankingStop ();
 
 	return false;
 }
@@ -486,6 +616,7 @@ AchieveInit (u64 task) {
 		personalLeaderboardManager->DownloadFSAchievements (0, 1, true);
 	}
 
+	RankingInit ("achieve");
 	RankingLoadBase ("achieve");
 	return false;
 }
@@ -561,42 +692,55 @@ AchieveDisplay (u64 task) {
 	params.colour[1]      = 0xFF;
 	params.colour[2]      = 0xFF;
 
+	if (leaderboardManager == nullptr || !leaderboardManager->GetAchievements ().has_value ()) RankingDisplayNone ("achieve");
+
 	for (u64 i = 0; i < 10; i++) {
-		sprintf (buf, "p_achieve_base%02lld_c", i + 1);
-		auto layer  = aets->find (entries_id[i]);
-		auto layout = comp.find (string (buf));
-		if (!layout.has_value () || !layer.has_value ()) continue;
-		layer.value ()->position = layout.value ()->position;
-		layer.value ()->color.w  = layout.value ()->opacity;
+		if (leaderboardManager == nullptr || !leaderboardManager->GetAchievements ().has_value ()) {
+			sprintf (buf, "p_achieve_achieve_num01_%02lld_rt", i + 1);
+			if (auto layout = comp.find (string (buf))) {
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 1.5, layout.value ()->position.y + layout.value ()->height / 3.0);
+				params.lineOrigin  = position;
+				params.textCurrent = position;
+				params.colour[3]   = layout.value ()->opacity * 0xFF;
+				DrawTextFmt (&params, 0x28, "----");
+			}
 
-		if (leaderboardManager == nullptr) continue;
-		auto achievements = leaderboardManager->GetAchievements ();
-		if (!achievements.has_value () || achievements.value ().size () <= i + offset) continue;
-		auto achievement = achievements.value ().at (i + offset);
+			sprintf (buf, "p_achieve_achieve_num02_%02lld_rt", i + 1);
+			if (auto layout = comp.find (string (buf))) {
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width, layout.value ()->position.y + layout.value ()->height / 3.0);
+				params.lineOrigin  = position;
+				params.textCurrent = position;
+				params.colour[3]   = layout.value ()->opacity * 0xFF;
+				DrawTextFmt (&params, 0x28, "---");
+			}
+		} else if (leaderboardManager->GetAchievements ().value ().size () > i + offset) {
+			auto achievements = leaderboardManager->GetAchievements ();
+			auto achievement  = achievements.value ().at (i + offset);
 
-		f32 clearPercentage = achievement.combinedPercentage / songCounts[isCT][difficulty];
-		f32 left            = floor (clearPercentage);
-		f32 right           = clearPercentage - left;
+			f32 clearPercentage = achievement.combinedPercentage / songCounts[isCT][difficulty];
+			f32 left            = floor (clearPercentage);
+			f32 right           = clearPercentage - left;
 
-		sprintf (buf, "p_achieve_achieve_num01_%02lld_rt", i + 1);
-		if (auto layout = comp.find (string (buf))) {
-			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 1.5, layout.value ()->position.y + layout.value ()->height / 3.0);
-			params.lineOrigin  = position;
-			params.textCurrent = position;
-			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%04.0f", right * 10000.0);
+			sprintf (buf, "p_achieve_achieve_num01_%02lld_rt", i + 1);
+			if (auto layout = comp.find (string (buf))) {
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 1.5, layout.value ()->position.y + layout.value ()->height / 3.0);
+				params.lineOrigin  = position;
+				params.textCurrent = position;
+				params.colour[3]   = layout.value ()->opacity * 0xFF;
+				DrawTextFmt (&params, 0x28, "%04.0f", right * 10000.0);
+			}
+
+			sprintf (buf, "p_achieve_achieve_num02_%02lld_rt", i + 1);
+			if (auto layout = comp.find (string (buf))) {
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width, layout.value ()->position.y + layout.value ()->height / 3.0);
+				params.lineOrigin  = position;
+				params.textCurrent = position;
+				params.colour[3]   = layout.value ()->opacity * 0xFF;
+				DrawTextFmt (&params, 0x28, "%03.0f", left);
+			}
+
+			RankingDisplay ("achieve", achievement, i);
 		}
-
-		sprintf (buf, "p_achieve_achieve_num02_%02lld_rt", i + 1);
-		if (auto layout = comp.find (string (buf))) {
-			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width, layout.value ()->position.y + layout.value ()->height / 3.0);
-			params.lineOrigin  = position;
-			params.textCurrent = position;
-			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%03.0f", left);
-		}
-
-		RankingDisplay ("achieve", achievement, i);
 	}
 
 	auto personalAchivement = personalLeaderboardManager->GetAchievements ();
@@ -631,6 +775,32 @@ AchieveDisplay (u64 task) {
 			params.colour[3]   = layout.value ()->opacity * 0xFF;
 			DrawTextFmt (&params, 0x28, "%d", personalAchivement.value ().front ().rank);
 		}
+	} else {
+		GetComposition (&comp, my_id);
+
+		if (auto layout = comp.find (string ("p_achieve_my_achieve_num01_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 1.5, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "----");
+		}
+
+		if (auto layout = comp.find (string ("p_achieve_my_achieve_num02_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "---");
+		}
+
+		if (auto layout = comp.find (string ("p_achieve_my_grade01_c"))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "-");
+		}
 	}
 
 	return false;
@@ -652,6 +822,7 @@ AchieveDestroy (u64 task) {
 bool
 SurvivalInit (u64 task) {
 	lastFilter = 0;
+	RankingInit ("survival");
 
 	return false;
 }
@@ -705,12 +876,14 @@ SurvivalLoop (u64 task) {
 	}
 
 	if (state == 2 && leaderboardManager != nullptr) {
-		RankingStop ();
 		delete leaderboardManager;
 		leaderboardManager = nullptr;
 
 		delete leaderboardManager;
 		personalLeaderboardManager = nullptr;
+
+		RankingReload ("survival");
+		StopAet (&load_id);
 	}
 
 	return false;
@@ -742,56 +915,82 @@ SurvivalDisplay (u64 task) {
 		layer.value ()->color.w  = layout.value ()->opacity;
 	}
 
+	if (leaderboardManager == nullptr || !leaderboardManager->GetScores ().has_value ()) RankingDisplayNone ("survival");
+
 	for (u64 i = 0; i < 10; i++) {
-		sprintf (buf, "p_survival_base%02lld_c", i + 1);
-		auto layer  = aets->find (entries_id[i]);
-		auto layout = comp.find (string (buf));
-		if (!layout.has_value () || !layer.has_value ()) continue;
-		layer.value ()->position = layout.value ()->position;
-		layer.value ()->color.w  = layout.value ()->opacity;
-
-		if (leaderboardManager == nullptr) continue;
-		auto scores = leaderboardManager->GetScores ();
-		if (!scores.has_value () || scores.value ().size () <= i + offset) continue;
-		auto score = scores.value ().at (i + offset);
-
-		sprintf (buf, "p_survival_score%02lld_rt", i + 1);
-		if (auto layout = comp.find (string (buf))) {
-			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
-			params.lineOrigin  = position;
-			params.textCurrent = position;
-			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%07d", score.score);
-		}
-
-		RankingDisplay ("survival", score, i);
-	}
-
-	if (personalLeaderboardManager != nullptr) {
-		auto personalScore = personalLeaderboardManager->GetScores ();
-		if (personalScore.has_value () && personalScore.value ().size () == 1) {
-			StopAet (&my_none_id);
-
-			GetComposition (&comp, my_id);
-
-			if (auto layout = comp.find (string ("p_survival_my_score01_rt"))) {
+		if (leaderboardManager == nullptr || !leaderboardManager->GetScores ().has_value ()) {
+			sprintf (buf, "p_survival_score%02lld_rt", i + 1);
+			if (auto layout = comp.find (string (buf))) {
 				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%07d", personalLeaderboardManager->GetScores ().value ().front ().score);
+				DrawTextFmt (&params, 0x28, "-------");
 			}
+		} else {
+			auto scores = leaderboardManager->GetScores ();
+			if (scores.value ().size () <= i + offset) continue;
+			auto score = scores.value ().at (i + offset);
 
-			if (auto layout = comp.find (string ("p_survival_my_grade01_c"))) {
-				auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			sprintf (buf, "p_survival_score%02lld_rt", i + 1);
+			if (auto layout = comp.find (string (buf))) {
+				auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
 				params.lineOrigin  = position;
 				params.textCurrent = position;
 				params.colour[3]   = layout.value ()->opacity * 0xFF;
-				DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+				DrawTextFmt (&params, 0x28, "%07d", score.score);
 			}
+
+			RankingDisplay ("survival", score, i);
 		}
 	}
 
+	if (personalLeaderboardManager != nullptr && personalLeaderboardManager->GetScores ().has_value () && personalLeaderboardManager->GetScores ().value ().size () == 1) {
+		StopAet (&my_none_id);
+
+		GetComposition (&comp, my_id);
+
+		if (auto layout = comp.find (string ("p_survival_my_score01_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%07d", personalLeaderboardManager->GetScores ().value ().front ().score);
+		}
+
+		if (auto layout = comp.find (string ("p_survival_my_grade01_c"))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+		}
+	} else {
+		GetComposition (&comp, my_id);
+
+		if (auto layout = comp.find (string ("p_survival_my_score01_rt"))) {
+			auto position      = Vec2 (layout.value ()->position.x - layout.value ()->width * 2.4, layout.value ()->position.y + layout.value ()->height / 3.0);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "-------");
+		}
+
+		if (auto layout = comp.find (string ("p_survival_my_grade01_c"))) {
+			auto position      = Vec2 (layout.value ()->position.x, layout.value ()->position.y);
+			params.lineOrigin  = position;
+			params.textCurrent = position;
+			params.colour[3]   = layout.value ()->opacity * 0xFF;
+			DrawTextFmt (&params, 0x28, "-");
+		}
+	}
+
+	return false;
+}
+
+bool
+SurvivalDestroy (u64 task) {
+	RankingStop ();
 	return false;
 }
 
@@ -814,6 +1013,7 @@ init () {
 	hiscore.init    = HiScoreInit;
 	hiscore.loop    = HiScoreLoop;
 	hiscore.display = HiScoreDisplay;
+	hiscore.destroy = HiScoreDestroy;
 	addTaskAddition ("CS_RANKING_HI_SCORE", hiscore);
 
 	taskAddition achieve;
@@ -827,6 +1027,7 @@ init () {
 	survival.init    = SurvivalInit;
 	survival.loop    = SurvivalLoop;
 	survival.display = SurvivalDisplay;
+	survival.destroy = SurvivalDestroy;
 	addTaskAddition ("CS_RANKING_SURVIVAL", survival);
 
 	INSTALL_HOOK (GetSurvivalSprId);

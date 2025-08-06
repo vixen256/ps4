@@ -508,7 +508,6 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 						if (nc && style != 0) {
 							auto CheckSongHasStyleAvailable = (nc::CheckSongHasStyleAvailable)GetProcAddress (nc, "CheckSongHasStyleAvailable");
 							if (CheckSongHasStyleAvailable != nullptr) {
-
 								if (CheckSongHasStyleAvailable (survival.id, survival.difficulty, survival.edition, style)) courses[id.u.i].push_back (survival);
 							}
 						} else courses[id.u.i].push_back (survival);
