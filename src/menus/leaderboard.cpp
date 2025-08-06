@@ -1000,11 +1000,15 @@ HOOK (i32, GetSurvivalSprId, 0x1401C5C60, i32 index) {
 	char sprBuf[64];
 	stringRange name;
 
-	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_SEL", id);
+	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_GALLERY", id);
 	name      = stringRange (sprBuf);
 	u32 sprId = *getSpriteId (nullptr, &name);
-	if (sprId == (u32)-1) return originalGetSurvivalSprId (index);
-	else return sprId;
+	if (sprId == (u32)-1) {
+		name  = stringRange ("SPR_PS4_GALLERY_SURVIVAL_COURSE_MODDED");
+		sprId = *getSpriteId (nullptr, &name);
+	}
+
+	return sprId;
 }
 
 void
