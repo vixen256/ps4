@@ -243,7 +243,7 @@ realLoadSurvivalSprite (i32 index) {
 	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_RESULT", id);
 	name      = stringRange (sprBuf);
 	u32 sprId = *getSpriteId (nullptr, &name);
-	if (sprId == (u32)-1) return "SPR_PS4_RESULT_SURVIVAL_COURSE_MODDED";
+	if (sprId == (u32)-1) return "SPR_PS4_RESULT_COURSE_SURVIVAL_MODDED";
 	else return "SPR_SURVIVAL_COURSE%02d_RESULT";
 }
 

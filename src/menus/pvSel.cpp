@@ -566,7 +566,7 @@ HOOK (void, GetSurvivalSprite, 0x140211720, u64 a1, u32 *dummySprId, u32 *sprId,
 	name   = stringRange (sprBuf);
 	*sprId = *getSpriteId (nullptr, &name);
 	if (*sprId == (u32)-1) {
-		name   = stringRange ("SPR_PS4_MENU_SORT_SURVIVAL_COURSE_MODDED");
+		name   = stringRange ("SPR_PS4_MENU_SORT_SURVIVAL_MODDED");
 		*sprId = *getSpriteId (nullptr, &name);
 	}
 
