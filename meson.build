@@ -59,6 +59,7 @@ library(
 		'src/menus/customize.cpp',
 		'src/menus/customize.asm',
 		'src/menus/result.cpp',
+		'src/menus/result.asm',
 		'src/menus/decoration.cpp',
 		'src/menus/pvWatch.cpp',
 		'src/menus/pvGame.cpp',

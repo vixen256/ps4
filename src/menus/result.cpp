@@ -232,6 +232,24 @@ HOOK (void, PlayRankGaugeLoop, 0x140236F80, u64 a1) {
 	originalPlayRankGaugeLoop (a1);
 }
 
+extern "C" {
+const char *
+realLoadSurvivalSprite (i32 index) {
+	if (!pvSel::survivalIndexIds.contains (index)) return "SPR_PS4_RESULT_COURSE_SURVIVAL_%02d";
+	i32 id = pvSel::survivalIndexIds[index];
+	char sprBuf[64];
+	stringRange name;
+
+	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_RESULT", id);
+	name      = stringRange (sprBuf);
+	u32 sprId = *getSpriteId (nullptr, &name);
+	if (sprId == (u32)-1) return "SPR_PS4_RESULT_SURVIVAL_COURSE_MODDED";
+	else return "SPR_SURVIVAL_COURSE%02d_RESULT";
+}
+
+HOOK (void, LoadSurvivalSprite, 0x140238663);
+}
+
 void
 init () {
 	INSTALL_HOOK (GetStageResultSwitch);
@@ -240,6 +258,7 @@ init () {
 	INSTALL_HOOK (GetRankData);
 	INSTALL_HOOK (PlayRankGauge);
 	INSTALL_HOOK (PlayRankGaugeLoop);
+	INSTALL_HOOK (LoadSurvivalSprite);
 
 	diva::taskAddition gameResultAddition;
 	gameResultAddition.loop = GameResultLoop;
