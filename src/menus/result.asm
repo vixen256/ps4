@@ -22,11 +22,14 @@ implOfLoadSurvivalSprite:
 	mov ebx, eax
 	mov ecx, eax
 	call getSurvivalIdForIndex
-	mov r9d, eax
 
 	mov ecx, ebx
+	mov ebx, eax
+
 	call realLoadSurvivalSprite
+
 	mov r8, rax
+	mov r9d, ebx
 
 	pop r15
 	pop r14
