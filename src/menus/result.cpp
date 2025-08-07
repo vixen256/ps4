@@ -233,6 +233,12 @@ HOOK (void, PlayRankGaugeLoop, 0x140236F80, u64 a1) {
 }
 
 extern "C" {
+i32
+getSurvivalIdForIndex (i32 index) {
+	if (!pvSel::survivalIndexIds.contains (index)) return index + 1;
+	else return pvSel::survivalIndexIds[index];
+}
+
 const char *
 realLoadSurvivalSprite (i32 index) {
 	if (!pvSel::survivalIndexIds.contains (index)) return "SPR_PS4_RESULT_COURSE_SURVIVAL_%02d";
