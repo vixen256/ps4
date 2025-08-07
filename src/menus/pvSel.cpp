@@ -318,8 +318,8 @@ PVSelLoop (u64 This) {
 	if (*(i32 *)(This + 0xA8) != lastCover) {
 		auto covers = (vector<CoverSong> *)(This + 0x478);
 		if (auto cover = covers->at (*(i32 *)(This + 0xA8))) {
-			*(i32 *)(This + 0x36A08) = 1;
-			memcpy ((void *)(This + 0x36A10), (void *)&cover.value ()->fileName, sizeof (string));
+			*(i32 *)(This + 0x36A08)    = 1;
+			*(string *)(This + 0x36A10) = cover.value ()->fileName.c_str ();
 			PlayMusic ((void *)(This + 0x36A08), cover.value ()->fileName.c_str (), *(i32 *)(This + 0x36A30), *(f32 *)(This + 0x36A34), *(f32 *)(This + 0x36A38), *(f32 *)(This + 0x36A3C));
 		}
 	}
