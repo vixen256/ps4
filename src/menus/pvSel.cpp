@@ -316,12 +316,13 @@ PVSelLoop (u64 This) {
 	*(u8 *)((u64)nswgamPVSelTask + 0x27538) = (u8)style; // Fix Future Tone Customization
 
 	if (*(i32 *)(This + 0xA8) != lastCover) {
-		auto covers = (vector<CoverSong> *)(This + 0x478);
-		if (auto cover = covers->at (*(i32 *)(This + 0xA8))) {
-			*(i32 *)(This + 0x36A08)    = 1;
-			*(string *)(This + 0x36A10) = cover.value ()->fileName.c_str ();
+		*(i32 *)(This + 0x36A08) = 1;
+		auto covers              = (vector<CoverSong> *)(This + 0x478);
+		if (auto cover = covers->at (*(i32 *)(This + 0xA8)))
 			PlayMusic ((void *)(This + 0x36A08), cover.value ()->fileName.c_str (), *(i32 *)(This + 0x36A30), *(f32 *)(This + 0x36A34), *(f32 *)(This + 0x36A38), *(f32 *)(This + 0x36A3C));
-		}
+		else
+			PlayMusic ((void *)(This + 0x36A08), getPvDbEntry (*(i32 *)(This + 0x36A30)).value ()->soundFile.c_str (), *(i32 *)(This + 0x36A30), *(f32 *)(This + 0x36A34), *(f32 *)(This + 0x36A38),
+			           *(f32 *)(This + 0x36A3C));
 	}
 
 	lastCover = *(i32 *)(This + 0xA8);
