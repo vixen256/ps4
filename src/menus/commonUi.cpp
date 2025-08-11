@@ -6,7 +6,7 @@ i32 helpBaseId = 0;
 bool out       = false;
 
 HOOK (void, PlayControllerDisconnect, 0x140607BB0, void *a1, AetAction action) {
-	AetLayerArgs helpBaseArgs ("AET_NSWGAM_CMN_MAIN", "cmn_win_help_base", 0x13, action);
+	AetLayerArgs helpBaseArgs ("AET_NSWGAM_CMN_MAIN", "cmn_win_help_base", 0x14, action);
 	helpBaseArgs.play (&helpBaseId);
 	if (action == AetAction::OUT_ONCE) out = true;
 	originalPlayControllerDisconnect (a1, action);
