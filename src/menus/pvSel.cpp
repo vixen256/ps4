@@ -337,10 +337,12 @@ PVSelLoop (u64 This) {
 
 			auto cos = performer->pv_costume[diff];
 			if (cos == -1) cos = 0;
+			auto chara = performer->chara;
+			if (chara == -1) chara = 0;
 
 			ModuleData *module = nullptr;
 			for (auto it = modules->begin (); it != modules->end (); it++) {
-				if (it->chara == performer->chara && it->cos == cos) {
+				if (it->chara == chara && it->cos == cos) {
 					module = it;
 					break;
 				}
