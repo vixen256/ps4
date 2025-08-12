@@ -769,6 +769,9 @@ init () {
 	WRITE_NOP (0x14069223D, 4);
 	WRITE_NOP (0x140689899, 4);
 
+	WRITE_NOP (0x140691E27, 3); // SetModuleChoiceListPriority
+	WRITE_NOP (0x1406893D7, 3); // SetHairstyleChoiceListPriority
+
 	WRITE_MEMORY (0x140677FA9, i32, 25); // Choice_conf priority
 	WRITE_MEMORY (0x140677E86, i32, 26); // Choice_conf button priority
 
