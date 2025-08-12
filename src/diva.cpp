@@ -48,6 +48,7 @@ FUNCTION_PTR (void *, FindScore, 0x14E5A32F0, void *saveData, i32 pvId);
 FUNCTION_PTR (void *, GetScoreDifficulty, 0x1401D9DF0, void *score, i32 unk, i32 diff, i32 extra);
 FUNCTION_PTR (bool, IsScoreDifficultyUnlocked, 0x1401D9BC0, void *scoreDifficulty);
 FUNCTION_PTR (void *, FindModule, 0x1401D5C90, void *saveData, u32 moduleId);
+FUNCTION_PTR (void *, FindCstmItem, 0x1401D5CB0, void *saveData, u32 itemId);
 FUNCTION_PTR (bool, CheckModuleUnlocked, 0x1401DA550, void *moduleSaveData);
 FUNCTION_PTR (void, LoadAetSet, 0x1402C9FA0, i32 id, string *out);
 FUNCTION_PTR (bool, LoadAetSetFinish, 0x1402CA020, i32 id);

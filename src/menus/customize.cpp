@@ -234,10 +234,121 @@ i32 choiceListPackId[16] = {0};
 
 extern "C" {
 void
-LoadChoiceListPlayTxt (AetLayoutData *layout, ModuleAttr attr, i32 index) {
-	if ((attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) {
+LoadChoiceListStatus (AetLayoutData *layout, ModuleData *module, i32 index, bool selected) {
+	const char *name;
+	if (selected) {
+		if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone) ||
+		    (module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == 0) {
+			name = index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc";
+		} else if (module->attr & ModuleAttr::FutureSound) {
+			name = index == 5 ? "choice_list_status_set_sel_f" : "choice_list_status_set_f";
+		} else {
+			name = index == 5 ? "choice_list_status_set_sel_t" : "choice_list_status_set_t";
+		}
+	} else if (module->id < 0) {
+		if (index != 5) {
+			StopAet (&choiceListPackId[index]);
+			return;
+		}
+		name = "choice_list_status_unset_sel_etc";
+	} else if (CheckModuleUnlocked (FindModule (GetSaveData (), module->id))) {
+		if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone) ||
+		    (module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == 0) {
+			name = index == 5 ? "choice_list_status_have_sel_etc" : "choice_list_status_have_etc";
+		} else if (module->attr & ModuleAttr::FutureSound) {
+			name = index == 5 ? "choice_list_status_have_sel_f" : "choice_list_status_have_f";
+		} else {
+			name = index == 5 ? "choice_list_status_have_sel_t" : "choice_list_status_have_t";
+		}
+	} else if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone) ||
+	           (module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == 0) {
+		name = index == 5 ? "choice_list_status_none_sel_etc" : "choice_list_status_none_etc";
+	} else if (module->attr & ModuleAttr::FutureSound) {
+		name = index == 5 ? "choice_list_status_none_sel_f" : "choice_list_status_none_f";
+	} else {
+		name = index == 5 ? "choice_list_status_none_sel_t" : "choice_list_status_none_t";
+	}
+
+	AetLayerArgs args;
+	auto priority = index;
+	if (index > 5) {
+		priority = -priority;
+		priority += 10;
+	}
+	priority *= 2;
+	priority += 10;
+
+	args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
+	args.position = layout->position;
+	args.color.w  = layout->opacity;
+	if (index == 11) args.color.w = 0.0;
+	args.play (&choiceListPackId[index]);
+}
+
+HOOK (void, LoadModuleChoiceList, 0x140691D47);
+const char *
+realLoadModuleChoiceList (u64 This, i32 moduleId, i32 index) {
+	if (moduleId == -1) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	auto modules   = (vector<ModuleData *> *)(This + 0x70);
+	auto moduleOpt = modules->at (moduleId);
+	if (!moduleOpt.has_value () || **moduleOpt == nullptr) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	auto module = **moduleOpt;
+
+	auto layouts = *(u64 *)(This + 0x1C8);
+	if (layouts == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	auto offset = *(i32 *)(This + 0x1AC);
+	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
+	if (layout == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+
+	LoadChoiceListStatus (layout, module, index, *(i32 *)(This + 0x2C) == moduleId);
+
+	if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone))
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	else if (module->attr & ModuleAttr::FutureSound) return index == 5 ? "choice_list_mdl_base_f_sel" : "choice_list_mdl_base_f";
+	else if (module->attr & ModuleAttr::ColorfulTone) return index == 5 ? "choice_list_mdl_base_t_sel" : "choice_list_mdl_base_t";
+	else return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+}
+
+HOOK (void, LoadHairstyleChoiceList, 0x1406892F8);
+const char *
+realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
+	if (hairstyleId == -1) {
 		StopAet (&choiceListPackId[index]);
-	} else if (attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) {
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	}
+	auto taskData = *(u64 *)0x14CC6F178;
+	auto modules  = (vector<ModuleData> *)(taskData + 0x1A0);
+
+	auto hairstyles   = (vector<CustomizeItemData *> *)(This + 0x108);
+	auto hairstyleOpt = hairstyles->at (hairstyleId);
+	if (!hairstyleOpt.has_value ()) {
+		StopAet (&choiceListPackId[index]);
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	}
+	auto hairstyle = **hairstyleOpt;
+	if (hairstyle == nullptr) {
+		printf ("Hairstyle with offset %d is NULL\n", hairstyleId);
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	}
+
+	auto layouts = *(u64 *)(This + 0x1F0);
+	if (layouts == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	auto offset = *(i32 *)(This + 0x1D4);
+	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
+	if (layout == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+
+	if (hairstyle->bind_module == -1) {
+		const char *name;
+		if (*(i32 *)(This + 0x2C) == hairstyleId) {
+			name = index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc";
+		} else {
+			if (index != 5) {
+				StopAet (&choiceListPackId[index]);
+				return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+			}
+			name = "choice_list_status_unset_sel_etc";
+		}
+
 		AetLayerArgs args;
 		auto priority = index;
 		if (index > 5) {
@@ -247,76 +358,13 @@ LoadChoiceListPlayTxt (AetLayoutData *layout, ModuleAttr attr, i32 index) {
 		priority *= 2;
 		priority += 10;
 
-		if (attr & ModuleAttr::FutureSound) args.create ("AET_NSWGAM_CUSTOM_MAIN", "choice_list_pack_f", priority, AetAction::NONE);
-		else args.create ("AET_NSWGAM_CUSTOM_MAIN", "choice_list_pack_t", priority, AetAction::NONE);
+		args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
 		args.position = layout->position;
 		args.color.w  = layout->opacity;
-		if (index == 5) {
-			args.scale = Vec3{1.2, 1.2, 1.2};
-			args.position.y -= 5;
-		} else if (index == 11) {
-			args.color.w = 0.0;
-		}
+		if (index == 11) args.color.w = 0.0;
 		args.play (&choiceListPackId[index]);
-	} else {
-		StopAet (&choiceListPackId[index]);
-	}
-}
 
-HOOK (void, LoadModuleChoiceList, 0x140691D47);
-const char *
-realLoadModuleChoiceList (u64 This, i32 moduleId, i32 index) {
-	if (moduleId == -1) {
-		StopAet (&choiceListPackId[index]);
-		return "choice_list_mdl_base_etc_sel";
-	}
-	auto modules   = (vector<ModuleData *> *)(This + 0x70);
-	auto moduleOpt = modules->at (moduleId);
-	if (!moduleOpt.has_value ()) {
-		StopAet (&choiceListPackId[index]);
-		return "choice_list_mdl_base_etc_sel";
-	}
-	auto module = **moduleOpt;
-	if (module == 0) return "choice_list_mdl_base_etc_sel";
-
-	auto layouts = *(u64 *)(This + 0x1C8);
-	if (layouts == 0) return "choice_list_mdl_base_etc_sel";
-	auto offset = *(i32 *)(This + 0x1AC);
-	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
-	if (layout == 0) return "choice_list_mdl_base_etc_sel";
-
-	LoadChoiceListPlayTxt (layout, module->attr, index);
-
-	if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) return "choice_list_mdl_base_etc_sel";
-	else if (module->attr & ModuleAttr::FutureSound) return "choice_list_mdl_base_f_sel";
-	else if (module->attr & ModuleAttr::ColorfulTone) return "choice_list_mdl_base_t_sel";
-	else return "choice_list_mdl_base_etc_sel";
-}
-
-HOOK (void, LoadHairstyleChoiceList, 0x1406892F8);
-const char *
-realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
-	if (hairstyleId == -1) {
-		StopAet (&choiceListPackId[index]);
-		return "choice_list_mdl_base_etc_sel";
-	}
-	auto taskData = *(u64 *)0x14CC6F178;
-	auto modules  = (vector<ModuleData> *)(taskData + 0x1A0);
-
-	auto hairstyles   = (vector<CustomizeItemData *> *)(This + 0x108);
-	auto hairstyleOpt = hairstyles->at (hairstyleId);
-	if (!hairstyleOpt.has_value ()) {
-		StopAet (&choiceListPackId[index]);
-		return "choice_list_mdl_base_etc_sel";
-	}
-	auto hairstyle = **hairstyleOpt;
-	if (hairstyle == 0) {
-		printf ("Hairstyle with offset %d is NULL\n", hairstyleId);
-		return "choice_list_mdl_base_etc_sel";
-	}
-	if (hairstyle->bind_module == -1) {
-		StopAet (&choiceListPackId[index]);
-		return "choice_list_mdl_base_etc_sel";
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
 	}
 	ModuleData *module = 0;
 	for (auto it = modules->begin (); it != modules->end (); it++) {
@@ -326,24 +374,65 @@ realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
 			break;
 		}
 	}
-	if (module == 0) {
+	if (module == nullptr) {
 		StopAet (&choiceListPackId[index]);
 		printf ("Failed to find module %d for %s\n", hairstyle->bind_module, hairstyle->name.c_str ());
-		return "choice_list_mdl_base_etc_sel";
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
 	}
 
-	auto layouts = *(u64 *)(This + 0x1F0);
-	if (layouts == 0) return "choice_list_mdl_base_etc_sel";
-	auto offset = *(i32 *)(This + 0x1D4);
+	LoadChoiceListStatus (layout, module, index, *(i32 *)(This + 0x2C) == hairstyleId);
+
+	if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone))
+		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	else if (module->attr & ModuleAttr::FutureSound) return index == 5 ? "choice_list_mdl_base_f_sel" : "choice_list_mdl_base_f";
+	else if (module->attr & ModuleAttr::ColorfulTone) return index == 5 ? "choice_list_mdl_base_t_sel" : "choice_list_mdl_base_t";
+	else return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+}
+
+HOOK (void, LoadItemChoiceList, 0x14068D28B);
+const char *
+realLoadItemChoiceList (u64 This, i32 itemId, i32 index) {
+	auto layouts = *(u64 *)(This + 0x130);
+	if (layouts == 0) return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
+	auto offset = *(i32 *)(This + 0x114);
 	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
-	if (layout == 0) return "choice_list_mdl_base_etc_sel";
+	if (layout == 0) return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
 
-	LoadChoiceListPlayTxt (layout, module->attr, index);
+	auto items   = (vector<CustomizeItemData *> *)(This + 0x48);
+	auto itemOpt = items->at (itemId);
+	if (!itemOpt.has_value () || **itemOpt == nullptr) {
+		StopAet (&choiceListPackId[index]);
+		return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
+	}
+	auto item = **itemOpt;
 
-	if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) return "choice_list_mdl_base_etc_sel";
-	else if (module->attr & ModuleAttr::FutureSound) return "choice_list_mdl_base_f_sel";
-	else if (module->attr & ModuleAttr::ColorfulTone) return "choice_list_mdl_base_t_sel";
-	else return "choice_list_mdl_base_etc_sel";
+	const char *name;
+	if (*(i32 *)(This + 0x34) == itemId) name = index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc";
+	else if (CheckModuleUnlocked (FindCstmItem (GetSaveData (), item->id))) name = index == 5 ? "choice_list_status_have_sel_etc" : "choice_list_status_have_etc";
+	else name = index == 5 ? "choice_list_status_none_sel_etc" : "choice_list_status_none_etc";
+
+	AetLayerArgs args;
+	auto priority = index;
+	if (index > 5) {
+		priority = -priority;
+		priority += 10;
+	}
+	priority *= 2;
+	priority += 10;
+
+	args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
+	args.position = layout->position;
+	args.color.w  = layout->opacity;
+	if (index == 11) args.color.w = 0.0;
+	args.play (&choiceListPackId[index]);
+
+	return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
+}
+
+HOOK (void, LoadReccomendChoiceList, 0x14069237E);
+const char *
+realLoadReccomendChoiceList (i32 index) {
+	return index == 5 ? "choice_list_recommend_sel" : "choice_list_recommend";
 }
 
 HOOK (void, SetModuleChoiceListPriority, 0x140691DC4);
@@ -368,6 +457,12 @@ HOOK (void, DestroyHairstyleSelect, 0x140688550, u64 This) {
 	originalDestroyHairstyleSelect (This);
 }
 
+HOOK (void, DestroyItemSelect, 0x14068C5D0, u64 This) {
+	for (size_t i = 0; i < COUNTOFARR (choiceListPackId); i++)
+		StopAet (&choiceListPackId[i]);
+	originalDestroyItemSelect (This);
+}
+
 HOOK (u64, ModulePreviewInit, 0x1406962E0, u64 a1) {
 	for (size_t i = 0; i < COUNTOFARR (choiceListPackId); i++)
 		StopAet (&choiceListPackId[i]);
@@ -378,6 +473,12 @@ HOOK (u64, HairstylePreviewInit, 0x14068BC90, u64 a1) {
 	for (size_t i = 0; i < COUNTOFARR (choiceListPackId); i++)
 		StopAet (&choiceListPackId[i]);
 	return originalHairstylePreviewInit (a1);
+}
+
+HOOK (u64, ItemPreviewInit, 0x14068F9B0, u64 a1) {
+	for (size_t i = 0; i < COUNTOFARR (choiceListPackId); i++)
+		StopAet (&choiceListPackId[i]);
+	return originalItemPreviewInit (a1);
 }
 
 extern "C" {
@@ -627,6 +728,8 @@ init () {
 
 	INSTALL_HOOK (LoadModuleChoiceList);
 	INSTALL_HOOK (LoadHairstyleChoiceList);
+	INSTALL_HOOK (LoadItemChoiceList);
+	INSTALL_HOOK (LoadReccomendChoiceList);
 
 	INSTALL_HOOK (SetModuleChoiceListPriority);
 	INSTALL_HOOK (SetHairstyleChoiceListPriority);
@@ -638,8 +741,10 @@ init () {
 
 	INSTALL_HOOK (DestroyModuleSelect);
 	INSTALL_HOOK (DestroyHairstyleSelect);
+	INSTALL_HOOK (DestroyItemSelect);
 	INSTALL_HOOK (ModulePreviewInit);
 	INSTALL_HOOK (HairstylePreviewInit);
+	INSTALL_HOOK (ItemPreviewInit);
 
 	taskAddition addition;
 	addition.loop    = CustomizeSelLoop;
@@ -651,15 +756,18 @@ init () {
 	WRITE_MEMORY (0x140689C48, i8, 0x10); // Hairstyles
 	WRITE_MEMORY (0x14068DC1D, i8, 0x10); // Accessories
 
-	WRITE_MEMORY (0x1406920B4, i32, 22); // Module name box priority
-	WRITE_MEMORY (0x14068965F, i32, 22); // Hairstyle name box priority
 	WRITE_MEMORY (0x140692D50, i32, 23); // Module name text priority
 	WRITE_MEMORY (0x14068A05C, i32, 23); // Hairstyle name text priority
-	WRITE_MEMORY (0x14069217B, i32, 22); // Module VP cost box priority
-	WRITE_MEMORY (0x1406897C7, i32, 22); // Hairstyle VP cost box priority
+	WRITE_MEMORY (0x14068DEFC, i32, 23); // Item name text priority
 	WRITE_MEMORY (0x1406930EE, i32, 23); // Module VP cost text priority
 	WRITE_MEMORY (0x14068A457, i32, 23); // Hairstyle VP cost text priority
+	WRITE_MEMORY (0x14068E2BE, i32, 23); // Item VP cost text priority
 	WRITE_MEMORY (0x140692398, i32, 21); // Reccomended module priority
+
+	WRITE_MEMORY (0x1406930BE, u8, 0x81, 0xE2, 0x00, 0x00, 0x00, 0xFF); // Module VP cost text colour
+	WRITE_MEMORY (0x14068A427, u8, 0x81, 0xE2, 0x00, 0x00, 0x00, 0xFF); // Hairstyle VP cost text colour
+	WRITE_MEMORY (0x14068E28E, u8, 0x81, 0xE2, 0x00, 0x00, 0x00, 0xFF); // Item VP cost text colour
+
 	WRITE_NOP (0x1406923A3, 4);
 
 	WRITE_NOP (0x14069223D, 4);

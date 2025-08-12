@@ -8,6 +8,14 @@ extern implOfLoadHairstyleChoiceList
 extern whereLoadHairstyleChoiceList
 extern realLoadHairstyleChoiceList
 
+extern implOfLoadItemChoiceList
+extern whereLoadItemChoiceList
+extern realLoadItemChoiceList
+
+extern implOfLoadReccomendChoiceList
+extern whereLoadReccomendChoiceList
+extern realLoadReccomendChoiceList
+
 extern implOfSetModuleChoiceListPriority
 extern whereSetModuleChoiceListPriority
 extern implOfSetHairstyleChoiceListPriority
@@ -117,6 +125,80 @@ implOfLoadHairstyleChoiceList:
 
 	mov r9, [rel whereLoadHairstyleChoiceList]
 	add r9, 6 + 7
+	jmp r9
+
+implOfLoadItemChoiceList:
+	push rax
+	push rbx
+	push rcx
+	push rsi
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+	sub rsp, 0x200
+
+	mov rcx, rdi
+	mov r8, rbx
+	call realLoadItemChoiceList
+	mov rdx, rax
+	call strlen
+
+	add rsp, 0x200
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop rsi
+	pop rcx
+	pop rbx
+	pop rax
+
+	mov r9, [rel whereLoadItemChoiceList]
+	add r9, 6 + 7
+	jmp r9
+
+implOfLoadReccomendChoiceList:
+	push rax
+	push rbx
+	push rcx
+	push rsi
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+	sub rsp, 0x200
+
+	mov ecx, r15d
+	cmp ecx, 5
+	jl .lesser
+	mov ecx, [rsp + 0x288]
+	add ecx, [rdi + 0x110 + 0x98]
+.lesser:
+	call realLoadReccomendChoiceList
+	mov rdx, rax
+	call strlen
+
+	add rsp, 0x200
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop rsi
+	pop rcx
+	pop rbx
+	pop rax
+
+	mov r9, [rel whereLoadReccomendChoiceList]
+	add r9, 4 + 7
 	jmp r9
 
 implOfSetModuleChoiceListPriority:

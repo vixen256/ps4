@@ -1196,6 +1196,7 @@ FUNCTION_PTR_H (void *, FindScore, void *saveData, i32 pvId);
 FUNCTION_PTR_H (void *, GetScoreDifficulty, void *score, i32 unk, i32 diff, i32 extra);
 FUNCTION_PTR_H (bool, IsScoreDifficultyUnlocked, void *scoreDifficulty);
 FUNCTION_PTR_H (void *, FindModule, void *saveData, u32 moduleId);
+FUNCTION_PTR_H (void *, FindCstmItem, void *saveData, u32 itemId);
 FUNCTION_PTR_H (bool, CheckModuleUnlocked, void *moduleSaveData);
 FUNCTION_PTR_H (void, LoadAetSet, i32 id, string *out);
 FUNCTION_PTR_H (bool, LoadAetSetFinish, i32 id);
