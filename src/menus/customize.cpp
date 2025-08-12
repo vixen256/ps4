@@ -439,8 +439,6 @@ HOOK (void, SetModuleChoiceListPriority, 0x140691DC4);
 HOOK (void, SetHairstyleChoiceListPriority, 0x140689375);
 HOOK (void, SetModuleSprPriority, 0x140692C4A);
 HOOK (void, SetHairstyleSprPriority, 0x140689F56);
-HOOK (void, SetModuleSelectedPriority, 0x14069222C);
-HOOK (void, SetHairstyleSelectedPriority, 0x140689889);
 
 HOOK (void, Memset, 0x14097B0E0);
 }
@@ -735,8 +733,6 @@ init () {
 	INSTALL_HOOK (SetHairstyleChoiceListPriority);
 	INSTALL_HOOK (SetModuleSprPriority);
 	INSTALL_HOOK (SetHairstyleSprPriority);
-	INSTALL_HOOK (SetModuleSelectedPriority);
-	INSTALL_HOOK (SetHairstyleSelectedPriority);
 	INSTALL_HOOK (Memset);
 
 	INSTALL_HOOK (DestroyModuleSelect);

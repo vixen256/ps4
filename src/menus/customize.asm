@@ -26,11 +26,6 @@ extern whereSetModuleSprPriority
 extern implOfSetHairstyleSprPriority
 extern whereSetHairstyleSprPriority
 
-extern implOfSetModuleSelectedPriority
-extern whereSetModuleSelectedPriority
-extern implOfSetHairstyleSelectedPriority
-extern whereSetHairstyleSelectedPriority
-
 extern implOfMemset
 extern originalMemset
 
@@ -239,24 +234,6 @@ SetSprPriority:
 	add eax, 10
 
 	jmp rdx
-
-implOfSetModuleSelectedPriority:
-	mov r8, [rel whereSetModuleSelectedPriority]
-	add r8, 6 + 4 + 2
-	jmp SetSelectedPriority
-implOfSetHairstyleSelectedPriority:
-	mov r8, [rel whereSetHairstyleSelectedPriority]
-	add r8, 6 + 5
-SetSelectedPriority:
-	mov r9d, r15d
-	cmp r9d, 5
-	jl .lesser
-	sub r9d, 5
-.lesser:
-	imul r9d, 2
-	add r9d, 10
-
-	jmp r8
 
 implOfMemset:
 	push r11
