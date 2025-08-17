@@ -55,8 +55,7 @@ StageResultInit (u64 task) {
 			auto extra  = *(i32 *)(pvData + 0x04);
 			auto pvId   = *(i32 *)(pvData + 0x20);
 
-			auto score    = FindScore (GetSaveData (), pvId);
-			auto newScore = *(i32 *)((u64)score + (0x120 * (diff + extra + 1)) - 0x10 - 0x04);
+			auto newScore = *(i32 *)((u64)GetScoreDifficulty (FindScore (GetSaveData (), pvId), 0, diff, extra) + 0x108);
 
 			if (diff + extra - 2 >= 0 && newScore > oldScore && newScore > 0) {
 				i32 exp  = 0;
@@ -97,11 +96,8 @@ StageResultLoop (u64 task) {
 				f32 combinedPercentage = 0.0;
 
 				for (auto it = pvs->begin (); it != pvs->end (); it++) {
-					auto score = FindScore (GetSaveData (), (*it)->id);
-					if (score != 0) {
-						auto percentage = *(i32 *)((u64)score + (0x120 * (diff + extra + 1)) - 0x10 + 0x04);
-						combinedPercentage += (f32)percentage / 100.0;
-					}
+					auto percentage = *(i32 *)((u64)GetScoreDifficulty (FindScore (GetSaveData (), (*it)->id), 0, diff, extra) + 0x110);
+					combinedPercentage += (f32)percentage / 100.0;
 				}
 
 				uploadManager->UploadAchievement (diff + extra - 2, combinedPercentage, rank);
@@ -122,11 +118,8 @@ StageResultLoop (u64 task) {
 				if (auto pv = getPvDbEntry (pvId)) {
 					for (auto it = pvs->begin (); it != pvs->end (); it++) {
 						if ((*it)->pack != pv.value ()->pack) continue;
-						auto score = FindScore (GetSaveData (), (*it)->id);
-						if (score != 0) {
-							auto percentage = *(i32 *)((u64)score + (0x120 * (diff + extra + 1)) - 0x10 + 0x04);
-							combinedPercentage += (f32)percentage / 100.0;
-						}
+						auto percentage = *(i32 *)((u64)GetScoreDifficulty (FindScore (GetSaveData (), (*it)->id), 0, diff, extra) + 0x110);
+						combinedPercentage += (f32)percentage / 100.0;
 					}
 
 					if (pv.value ()->pack == 1) uploadManager->UploadFSAchievement (diff + extra - 2, combinedPercentage, rank);
@@ -166,8 +159,7 @@ PVGameInit (u64 task) {
 	auto extra  = *(i32 *)(pvData + 0x04);
 	auto pvId   = *(i32 *)(pvData + 0x20);
 
-	auto score = FindScore (GetSaveData (), pvId);
-	oldScore   = *(i32 *)((u64)score + (0x120 * (diff + extra + 1)) - 0x10 - 0x04);
+	oldScore = *(i32 *)((u64)GetScoreDifficulty (FindScore (GetSaveData (), pvId), 0, diff, extra) + 0x108);
 
 	return false;
 }
