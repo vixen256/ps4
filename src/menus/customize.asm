@@ -12,6 +12,18 @@ extern implOfLoadItemChoiceList
 extern whereLoadItemChoiceList
 extern realLoadItemChoiceList
 
+extern implOfSetModuleSprArgs
+extern whereSetModuleSprArgs
+extern realSetModuleSprArgs
+
+extern implOfSetHairstyleSprArgs
+extern whereSetHairstyleSprArgs
+extern realSetHairstyleSprArgs
+
+extern implOfSetItemSprArgs
+extern whereSetItemSprArgs
+extern realSetItemSprArgs
+
 extern implOfLoadReccomendChoiceList
 extern whereLoadReccomendChoiceList
 extern realLoadReccomendChoiceList
@@ -20,11 +32,6 @@ extern implOfSetModuleChoiceListPriority
 extern whereSetModuleChoiceListPriority
 extern implOfSetHairstyleChoiceListPriority
 extern whereSetHairstyleChoiceListPriority
-
-extern implOfSetModuleSprPriority
-extern whereSetModuleSprPriority
-extern implOfSetHairstyleSprPriority
-extern whereSetHairstyleSprPriority
 
 extern implOfMemset
 extern originalMemset
@@ -157,6 +164,56 @@ implOfLoadItemChoiceList:
 	add r9, 6 + 7
 	jmp r9
 
+implOfSetModuleSprArgs:
+	pushaq
+	sub rsp, 0x200
+
+	mov rcx, rsi
+	lea rdx, [rbp + 0x50]
+	mov r8d, r11d
+	call realSetModuleSprArgs
+
+	add rsp, 0x200
+	popaq
+	mov rax, [rel whereSetModuleSprArgs]
+	add rax, 6 + 8
+	jmp rax
+
+implOfSetHairstyleSprArgs:
+	pushaq
+	sub rsp, 0x200
+
+	mov rcx, rdi
+	lea rdx, [rbp + 0x110]
+	mov r8d, r14d
+	cmp r8d, 5
+	jl .lesser
+	mov r8d, [rsp + 0x288]
+	add r8d, [rdi + 0x138 + 0x98]
+.lesser:
+	call realSetHairstyleSprArgs
+
+	add rsp, 0x200
+	popaq
+	mov rax, [rel whereSetHairstyleSprArgs]
+	add rax, 6 + 8
+	jmp rax
+
+implOfSetItemSprArgs:
+	pushaq
+	sub rsp, 0x200
+
+	mov rcx, rdi
+	lea rdx, [rbp + 0x40]
+	mov r8d, r11d
+	call realSetItemSprArgs
+
+	add rsp, 0x200
+	popaq
+	mov rax, [rel whereSetItemSprArgs]
+	add rax, 6 + 8
+	jmp rax
+
 implOfLoadReccomendChoiceList:
 	push rax
 	push rbx
@@ -213,27 +270,6 @@ SetChoiceListPriority:
 
 	add rax, 6
 	jmp rax
-
-implOfSetModuleSprPriority:
-	mov rdx, [rel whereSetModuleSprPriority]
-	add rdx, 5 + 3 + 3
-	mov eax, r11d
-	jmp SetSprPriority
-implOfSetHairstyleSprPriority:
-	mov rdx, [rel whereSetHairstyleSprPriority]
-	add rdx, 5 + 4 + 3 + 3
-	mov eax, esi
-	mov esi, [rsp+0x20]
-SetSprPriority:
-	cmp eax, 5
-	jle .lesser
-	neg eax
-	add eax, 10
-.lesser:
-	imul eax, 2
-	add eax, 10
-
-	jmp rdx
 
 implOfMemset:
 	push r11

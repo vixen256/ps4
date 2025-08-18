@@ -111,7 +111,7 @@ HOOK (void, PlayTshirtEditFooter, 0x140710680, void *a1, i32 index) {
 void
 playOptionText (i32 option, AetAction action) {
 	const char *txtLayer = "";
-	i32 *txtId;
+	i32 *txtId           = nullptr;
 	switch (option) {
 	case 0:
 		txtLayer = "game_menu_txt_button_config";
@@ -234,7 +234,7 @@ i32 choiceListPackId[16] = {0};
 
 extern "C" {
 void
-LoadChoiceListStatus (AetLayoutData *layout, ModuleData *module, i32 index, bool selected) {
+LoadChoiceListStatus (AetLayoutData *placeholder, ModuleData *module, i32 index, bool selected) {
 	const char *name;
 	if (selected) {
 		if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone) ||
@@ -279,8 +279,8 @@ LoadChoiceListStatus (AetLayoutData *layout, ModuleData *module, i32 index, bool
 	priority += 10;
 
 	args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
-	args.position = layout->position;
-	args.color.w  = layout->opacity;
+	args.position = placeholder->position;
+	args.color.w  = placeholder->opacity;
 	if (index == 11) args.color.w = 0.0;
 	args.play (&choiceListPackId[index]);
 }
@@ -294,13 +294,10 @@ realLoadModuleChoiceList (u64 This, i32 moduleId, i32 index) {
 	if (!moduleOpt.has_value () || **moduleOpt == nullptr) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
 	auto module = **moduleOpt;
 
-	auto layouts = *(u64 *)(This + 0x1C8);
-	if (layouts == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
-	auto offset = *(i32 *)(This + 0x1AC);
-	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
-	if (layout == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
-
-	LoadChoiceListStatus (layout, module, index, *(i32 *)(This + 0x2C) == moduleId);
+	char buf[64];
+	sprintf (buf, "p_choice_mdl_status%02d_c", index + 1);
+	auto comp = (AetComposition *)(This + 0x1D0);
+	if (auto placeholder = comp->find (string (buf))) LoadChoiceListStatus (placeholder.value (), module, index, *(i32 *)(This + 0x2C) == moduleId);
 
 	if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone))
 		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
@@ -331,41 +328,42 @@ realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
 		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
 	}
 
-	auto layouts = *(u64 *)(This + 0x1F0);
-	if (layouts == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
-	auto offset = *(i32 *)(This + 0x1D4);
-	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
-	if (layout == 0) return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+	char buf[64];
+	sprintf (buf, "p_choice_mdl_status%02d_c", index + 1);
+	auto comp = (AetComposition *)(This + 0x1F8);
 
 	if (hairstyle->bind_module == -1) {
-		const char *name;
-		if (*(i32 *)(This + 0x2C) == hairstyleId) {
-			name = index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc";
-		} else {
-			if (index != 5) {
-				StopAet (&choiceListPackId[index]);
-				return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+		if (auto placeholder = comp->find (string (buf))) {
+			const char *name;
+			if (*(i32 *)(This + 0x2C) == hairstyleId) {
+				name = index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc";
+			} else {
+				if (index != 5) {
+					StopAet (&choiceListPackId[index]);
+					return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
+				}
+				name = "choice_list_status_unset_sel_etc";
 			}
-			name = "choice_list_status_unset_sel_etc";
-		}
 
-		AetLayerArgs args;
-		auto priority = index;
-		if (index > 5) {
-			priority = -priority;
+			AetLayerArgs args;
+			auto priority = index;
+			if (index > 5) {
+				priority = -priority;
+				priority += 10;
+			}
+			priority *= 2;
 			priority += 10;
-		}
-		priority *= 2;
-		priority += 10;
 
-		args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
-		args.position = layout->position;
-		args.color.w  = layout->opacity;
-		if (index == 11) args.color.w = 0.0;
-		args.play (&choiceListPackId[index]);
+			args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
+			args.position = placeholder.value ()->position;
+			args.color.w  = placeholder.value ()->opacity;
+			if (index == 11) args.color.w = 0.0;
+			args.play (&choiceListPackId[index]);
+		}
 
 		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
 	}
+
 	ModuleData *module = 0;
 	for (auto it = modules->begin (); it != modules->end (); it++) {
 		if (it == 0) continue;
@@ -380,7 +378,7 @@ realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
 		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
 	}
 
-	LoadChoiceListStatus (layout, module, index, *(i32 *)(This + 0x2C) == hairstyleId);
+	if (auto placeholder = comp->find (string (buf))) LoadChoiceListStatus (placeholder.value (), module, index, *(i32 *)(This + 0x2C) == hairstyleId);
 
 	if ((module->attr & (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone)) == (ModuleAttr::FutureSound | ModuleAttr::ColorfulTone))
 		return index == 5 ? "choice_list_mdl_base_etc_sel" : "choice_list_mdl_base_etc";
@@ -392,12 +390,6 @@ realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
 HOOK (void, LoadItemChoiceList, 0x14068D28B);
 const char *
 realLoadItemChoiceList (u64 This, i32 itemId, i32 index) {
-	auto layouts = *(u64 *)(This + 0x130);
-	if (layouts == 0) return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
-	auto offset = *(i32 *)(This + 0x114);
-	auto layout = *(AetLayoutData **)(layouts + ((index + offset) * 16));
-	if (layout == 0) return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
-
 	auto items   = (vector<CustomizeItemData *> *)(This + 0x48);
 	auto itemOpt = items->at (itemId);
 	if (!itemOpt.has_value () || **itemOpt == nullptr) {
@@ -406,27 +398,84 @@ realLoadItemChoiceList (u64 This, i32 itemId, i32 index) {
 	}
 	auto item = **itemOpt;
 
-	const char *name;
-	if (*(i32 *)(This + 0x34) == itemId) name = index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc";
-	else if (CheckModuleUnlocked (FindCstmItem (GetSaveData (), item->id))) name = index == 5 ? "choice_list_status_have_sel_etc" : "choice_list_status_have_etc";
-	else name = index == 5 ? "choice_list_status_none_sel_etc" : "choice_list_status_none_etc";
+	char buf[64];
+	sprintf (buf, "p_choice_mdl_status%02d_c", index + 1);
+	auto comp = (AetComposition *)(This + 0x138);
+	if (auto placeholder = comp->find (string (buf))) {
+		const char *name;
+		if (*(i32 *)(This + 0x34) == itemId) name = (index == 5 ? "choice_list_status_set_sel_etc" : "choice_list_status_set_etc");
+		else if (CheckModuleUnlocked (FindCstmItem (GetSaveData (), item->id))) name = (index == 5 ? "choice_list_status_have_sel_etc" : "choice_list_status_have_etc");
+		else name = (index == 5 ? "choice_list_status_none_sel_etc" : "choice_list_status_none_etc");
 
-	AetLayerArgs args;
-	auto priority = index;
-	if (index > 5) {
-		priority = -priority;
+		AetLayerArgs args;
+		auto priority = index;
+		if (index > 5) {
+			priority = -priority;
+			priority += 10;
+		}
+		priority *= 2;
 		priority += 10;
-	}
-	priority *= 2;
-	priority += 10;
 
-	args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
-	args.position = layout->position;
-	args.color.w  = layout->opacity;
-	if (index == 11) args.color.w = 0.0;
-	args.play (&choiceListPackId[index]);
+		args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
+		args.position = placeholder.value ()->position;
+		args.color.w  = placeholder.value ()->opacity;
+		if (index == 11) args.color.w = 0.0;
+		args.play (&choiceListPackId[index]);
+	}
 
 	return index == 5 ? "choice_list_itm_base_sel" : "choice_list_itm_base";
+}
+
+HOOK (void, SetModuleSprArgs, 0x140692C73);
+void
+realSetModuleSprArgs (u64 This, SprArgs *args, i32 index) {
+	args->layer = ((index > 5 ? (index * -1) + 10 : index) * 2) + 10;
+
+	auto comp = (AetComposition *)(This + 0x1D0);
+
+	char buf[64];
+	sprintf (buf, "p_choice_mdl_pic%02d_c", index + 1);
+
+	if (auto placeholder = comp->find (string (buf))) {
+		args->trans    = placeholder.value ()->position;
+		args->scale.x  = placeholder.value ()->matrix.x.x;
+		args->scale.y  = placeholder.value ()->matrix.y.y;
+		args->color[3] = placeholder.value ()->opacity * 255.0;
+	}
+}
+
+HOOK (void, SetHairstyleSprArgs, 0x140689F89);
+void
+realSetHairstyleSprArgs (u64 This, SprArgs *args, i32 index) {
+	args->layer = ((index > 5 ? (index * -1) + 10 : index) * 2) + 10;
+
+	auto comp = (AetComposition *)(This + 0x1F8);
+
+	char buf[64];
+	sprintf (buf, "p_choice_mdl_pic%02d_c", index + 1);
+
+	if (auto placeholder = comp->find (string (buf))) {
+		args->trans    = placeholder.value ()->position;
+		args->scale.x  = placeholder.value ()->matrix.x.x;
+		args->scale.y  = placeholder.value ()->matrix.y.y;
+		args->color[3] = placeholder.value ()->opacity * 255.0;
+	}
+}
+
+HOOK (void, SetItemSprArgs, 0x14068DE2D);
+void
+realSetItemSprArgs (u64 This, SprArgs *args, i32 index) {
+	auto comp = (AetComposition *)(This + 0x138);
+
+	char buf[64];
+	sprintf (buf, "p_choice_mdl_pic%02d_c", index + 1);
+
+	if (auto placeholder = comp->find (string (buf))) {
+		args->trans    = placeholder.value ()->position;
+		args->scale.x  = placeholder.value ()->matrix.x.x;
+		args->scale.y  = placeholder.value ()->matrix.y.y;
+		args->color[3] = placeholder.value ()->opacity * 255.0;
+	}
 }
 
 HOOK (void, LoadReccomendChoiceList, 0x14069237E);
@@ -437,8 +486,6 @@ realLoadReccomendChoiceList (i32 index) {
 
 HOOK (void, SetModuleChoiceListPriority, 0x140691DC4);
 HOOK (void, SetHairstyleChoiceListPriority, 0x140689375);
-HOOK (void, SetModuleSprPriority, 0x140692C4A);
-HOOK (void, SetHairstyleSprPriority, 0x140689F56);
 
 HOOK (void, Memset, 0x14097B0E0);
 }
@@ -729,10 +776,12 @@ init () {
 	INSTALL_HOOK (LoadItemChoiceList);
 	INSTALL_HOOK (LoadReccomendChoiceList);
 
+	INSTALL_HOOK (SetModuleSprArgs);
+	INSTALL_HOOK (SetHairstyleSprArgs);
+	INSTALL_HOOK (SetItemSprArgs);
+
 	INSTALL_HOOK (SetModuleChoiceListPriority);
 	INSTALL_HOOK (SetHairstyleChoiceListPriority);
-	INSTALL_HOOK (SetModuleSprPriority);
-	INSTALL_HOOK (SetHairstyleSprPriority);
 	INSTALL_HOOK (Memset);
 
 	INSTALL_HOOK (DestroyModuleSelect);

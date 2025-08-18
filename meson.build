@@ -1,7 +1,6 @@
 project('ps4', 'c', 'cpp', 'nasm', version: '1.0.0')
 warning_level = 3
 cpp_std = 'c++20'
-debug = true
 optimization = 3
 b_lto = true
 b_pgo = 'use'
@@ -13,6 +12,7 @@ add_project_arguments(
 		'-D_WIN32_WINNT=_WIN32_WINNT_WIN10',
 		'-std=c++20',
 		'-masm=intel',
+		'-O3',
 	),
 	language: 'cpp',
 )
@@ -23,6 +23,7 @@ add_project_link_arguments(
 		'-s',
 		'-std=c++20',
 		'-ld3dcompiler',
+		'-O3',
 	),
 	language: 'cpp',
 )
