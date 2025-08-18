@@ -32,6 +32,7 @@ extern implOfSetModuleChoiceListPriority
 extern whereSetModuleChoiceListPriority
 extern implOfSetHairstyleChoiceListPriority
 extern whereSetHairstyleChoiceListPriority
+extern realSetChoiceListPriority
 
 extern implOfMemset
 extern originalMemset
@@ -256,23 +257,39 @@ implOfLoadReccomendChoiceList:
 
 implOfSetModuleChoiceListPriority:
 	mov rax, [rel whereSetModuleChoiceListPriority]
+	mov ecx, [rdi + 0x1BC]
 	jmp SetChoiceListPriority
 implOfSetHairstyleChoiceListPriority:
 	mov rax, [rel whereSetHairstyleChoiceListPriority]
+	mov ecx, [rdi + 0x1E4]
 SetChoiceListPriority:
-	mov r9d, ebx
-	cmp r9d, 8
-	jle .lesser
-	neg r9d
-	add r9d, 16
-	jmp .greater
-.lesser:
-	sub r9d, 1
-	cmp r9d, -1
-	cmove r9d, ebx
-.greater:
-	imul r9d, 2
-	add r9d, 3
+	push rax
+	push rcx
+	push rdx
+	push r8
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+	sub rsp, 0x200
+
+	mov edx, ebx
+	call realSetChoiceListPriority
+	mov r9d, eax
+
+	add rsp, 0x200
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop r8
+	pop rdx
+	pop rcx
+	pop rax
 
 	add rax, 6
 	jmp rax
