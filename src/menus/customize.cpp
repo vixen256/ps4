@@ -280,6 +280,8 @@ LoadChoiceListStatus (AetLayoutData *placeholder, ModuleData *module, i32 index,
 
 	args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
 	args.position = placeholder->position;
+	args.scale.x  = placeholder->matrix.x.x;
+	args.scale.y  = placeholder->matrix.y.y;
 	args.color.w  = placeholder->opacity;
 	if (index == 11) args.color.w = 0.0;
 	args.play (&choiceListPackId[index]);
@@ -356,6 +358,8 @@ realLoadHairstyleChoiceList (u64 This, i32 hairstyleId, i32 index) {
 
 			args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
 			args.position = placeholder.value ()->position;
+			args.scale.x  = placeholder.value ()->matrix.x.x;
+			args.scale.y  = placeholder.value ()->matrix.y.y;
 			args.color.w  = placeholder.value ()->opacity;
 			if (index == 11) args.color.w = 0.0;
 			args.play (&choiceListPackId[index]);
@@ -418,6 +422,8 @@ realLoadItemChoiceList (u64 This, i32 itemId, i32 index) {
 
 		args.create ("AET_NSWGAM_CUSTOM_MAIN", name, priority, AetAction::NONE);
 		args.position = placeholder.value ()->position;
+		args.scale.x  = placeholder.value ()->matrix.x.x;
+		args.scale.y  = placeholder.value ()->matrix.y.y;
 		args.color.w  = placeholder.value ()->opacity;
 		if (index == 11) args.color.w = 0.0;
 		args.play (&choiceListPackId[index]);
