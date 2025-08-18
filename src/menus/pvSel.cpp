@@ -44,7 +44,7 @@ void *nswgamPVSelTask = malloc (0x27540);
 
 void
 updateStyleAets (Style newStyle) {
-	int i = 0;
+	int i = 1;
 	switch (newStyle) {
 	case STYLE_FT: i = 2; break;
 	case STYLE_MM: i = 1; break;

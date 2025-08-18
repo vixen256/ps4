@@ -227,11 +227,12 @@ implOfLoadReccomendChoiceList:
 	push r15
 	sub rsp, 0x200
 
-	mov ecx, r15d
-	cmp ecx, 5
+	mov rcx, rdi
+	mov edx, r15d
+	cmp edx, 5
 	jl .lesser
-	mov ecx, [rsp + 0x288]
-	add ecx, [rdi + 0x110 + 0x98]
+	mov edx, [rsp + 0x288]
+	add edx, [rdi + 0x110 + 0x98]
 .lesser:
 	call realLoadReccomendChoiceList
 	mov rdx, rax
@@ -260,13 +261,18 @@ implOfSetHairstyleChoiceListPriority:
 	mov rax, [rel whereSetHairstyleChoiceListPriority]
 SetChoiceListPriority:
 	mov r9d, ebx
-	cmp r9d, 5
+	cmp r9d, 8
 	jle .lesser
 	neg r9d
-	add r9d, 10
+	add r9d, 16
+	jmp .greater
 .lesser:
+	sub r9d, 1
+	cmp r9d, -1
+	cmove r9d, ebx
+.greater:
 	imul r9d, 2
-	add r9d, 9
+	add r9d, 3
 
 	add rax, 6
 	jmp rax
