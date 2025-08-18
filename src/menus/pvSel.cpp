@@ -44,7 +44,7 @@ void *nswgamPVSelTask = malloc (0x27540);
 
 void
 updateStyleAets (Style newStyle) {
-	int i;
+	int i = 0;
 	switch (newStyle) {
 	case STYLE_FT: i = 2; break;
 	case STYLE_MM: i = 1; break;
@@ -587,7 +587,7 @@ HOOK (const char *, chara_index_get_chara_name, 0x1404de4b0, i32 index) {
 
 HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a3) {
 	originalSetPvLoadData (PvLoadData, info, a3);
-	if (IsSurvival () && survivalIdStyles.size () > 0) {
+	if (IsSurvival ()) {
 		auto nc = GetModuleHandle ("NewClassics.dll");
 		if (!nc) return;
 
@@ -597,16 +597,18 @@ HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a
 		if (!FindSongEntry || !FindChart || !GetState) return;
 
 		auto index = *(i32 *)0x140DAB3A8;
-		if (!survivalIndexIds.contains (index)) return;
-		i32 id = survivalIndexIds[index];
-		if (!survivalIdStyles.contains (id)) return;
-
-		auto style = survivalIdStyles[id];
 		auto state = GetState ();
+		if (!survivalIndexIds.contains (index) || !survivalIdStyles.contains (survivalIndexIds[index])) {
+			state->nc_song_entry.hasValue  = false;
+			state->nc_chart_entry.hasValue = false;
+			return;
+		}
+
+		auto style = survivalIdStyles[survivalIndexIds[index]];
 		auto song  = FindSongEntry (info->pvId);
 		auto chart = FindChart (info->pvId, info->difficulty, info->extra, style);
 
-		if (!state || !song || !chart) return;
+		if (!song || !chart) return;
 
 		state->nc_song_entry.value    = *song;
 		state->nc_song_entry.hasValue = true;
