@@ -20,6 +20,10 @@ InputType previousInputType;
 i32 gameOptionsArrowsUpId   = 0;
 i32 gameOptionsArrowsDownId = 0;
 
+i32 mdlPlateIndex[10]  = {0};
+i32 mdlIconIndex[8][6] = {{0}};
+i32 charaListId        = 0;
+
 struct PlayCustomizeSelFooterArgs {
 	string footerName;
 	i32 screen;
@@ -492,6 +496,8 @@ realSetItemSprArgs (u64 This, SprArgs *args, i32 index) {
 	if (moveState == 0) moveState = lastMoveState;
 	lastMoveState = moveState;
 	if (moveState == 1 || moveState == 2) index -= 1;
+	args->layer = ((index > (moveState == 2 ? 7 : 8) ? (index * -1) + 17 : (index + 2)) * 2) + 5;
+
 	auto comp = (AetComposition *)(This + 0x138);
 
 	char buf[64];
@@ -518,6 +524,7 @@ realLoadReccomendChoiceList (u64 This, i32 index) {
 
 HOOK (void, SetModuleChoiceListPriority, 0x140691DC4);
 HOOK (void, SetHairstyleChoiceListPriority, 0x140689375);
+HOOK (void, SetItemChoiceListPriority, 0x14068D2FF);
 i32
 realSetChoiceListPriority (i32 moveState, i32 index) {
 	if (moveState == 0) moveState = lastMoveState;
@@ -550,6 +557,14 @@ HOOK (void, DestroyItemSelect, 0x14068C5D0, u64 This) {
 HOOK (u64, ModulePreviewInit, 0x1406962E0, u64 a1) {
 	for (size_t i = 0; i < COUNTOFARR (choiceListPackId); i++)
 		StopAet (&choiceListPackId[i]);
+
+	for (i32 i = 0; i < 10; i++)
+		StopAet (&mdlPlateIndex[i]);
+	for (i32 i = 0; i < 8; i++)
+		for (i32 j = 0; j < 6; j++)
+			StopAet (&mdlIconIndex[i][j]);
+	StopAet (&charaListId);
+
 	return originalModulePreviewInit (a1);
 }
 
@@ -596,16 +611,16 @@ UpdateBG05Color () {
 }
 }
 
-i32 mdlPlateIndex[10]    = {0};
 const char *characters[] = {"mdl_plate_mei", "mdl_plate_other", "mdl_plate_rand", "mdl_plate_mik", "mdl_plate_rin", "mdl_plate_len", "mdl_plate_luk", "mdl_plate_kai"};
 i32 characterOffsets[]   = {3, 2, 1, 0, 7, 6, 5, 4};
-i32 mdlIconIndex[8][6]   = {{0}};
 bool inited              = false;
 i32 oldChara             = 0;
 HOOK (void, DrawMdlPlate, 0x140693830, u64 a1, i32 a2, u8 isIn) {
 	if (!isIn) {
 		for (i32 i = 0; i < 10; i++)
 			StopAet (&mdlPlateIndex[i]);
+
+		StopAet (&charaListId);
 		return;
 	}
 
@@ -613,28 +628,24 @@ HOOK (void, DrawMdlPlate, 0x140693830, u64 a1, i32 a2, u8 isIn) {
 	auto data = *(u64 *)(a1 + 0x08);
 	if (data == 0) return;
 	i32 selectedChara = *(i32 *)(data + 0x40);
-	auto hashmap      = *(u64 *)(data + 0x958);
-	auto hash         = *(u64 *)(a1 + 0xD8);
-	if (hashmap == 0 || hash == 0) return;
-	auto hashermap = (map<u64, AetLayerArgs *> *)(hashmap + 0x10);
-	auto charaList = hashermap->find (hash);
-	if (!charaList.has_value ()) return;
-	AetComposition comp;
-	GetComposition (&comp, (*charaList.value ())->id);
 
-	char layerName[64];
-	if (oldChara == 7 && selectedChara == 0) strcpy (layerName, "mdl_chara_list_up");
-	else if (oldChara == 0 && selectedChara == 7) strcpy (layerName, "mdl_chara_list_down");
-	else if (oldChara < selectedChara) strcpy (layerName, "mdl_chara_list_up");
-	else if (oldChara > selectedChara) strcpy (layerName, "mdl_chara_list_down");
-	else strcpy (layerName, "mdl_chara_list_loop");
-	strcpy ((*(charaList.value ()))->layerName, layerName);
-	(*(charaList.value ()))->play (&(*charaList.value ())->id);
+	const char *layerName;
+	if (oldChara == 7 && selectedChara == 0) layerName = "mdl_chara_list_up";
+	else if (oldChara == 0 && selectedChara == 7) layerName = "mdl_chara_list_down";
+	else if (oldChara < selectedChara) layerName = "mdl_chara_list_up";
+	else if (oldChara > selectedChara) layerName = "mdl_chara_list_down";
+	else if (*(i32 *)(a1 + 0x20) == 0) layerName = "mdl_chara_list_in";
+	else layerName = "mdl_chara_list_loop";
+
+	AetLayerArgs args ("AET_NSWGAM_CUSTOM_MAIN", layerName, 14, AetAction::NONE);
+	args.play (&charaListId);
 
 	oldChara = selectedChara;
 
-	if (strcmp (layerName, "mdl_chara_list_loop") != 0) {
-		GetComposition (&comp, (*charaList.value ())->id);
+	AetComposition comp;
+	GetComposition (&comp, charaListId);
+
+	if (oldChara != selectedChara) {
 		if (auto layout = comp.find (string ("p_chara_list00_c"))) {
 			auto charaIndex = -selectedChara + 7;
 			AetLayerArgs args ("AET_NSWGAM_CUSTOM_MAIN", characters[charaIndex], 14, AetAction::IN_ONCE);
@@ -683,15 +694,9 @@ HOOK (void, DrawMdlIcon, 0x1406940F0, u64 a1, i32 a2, u8 isIn) {
 	auto data = *(u64 *)(a1 + 0x08);
 	if (data == 0) return;
 	i32 selectedChara = *(i32 *)(data + 0x40);
-	auto hashmap      = *(u64 *)(data + 0x958);
-	auto hash         = *(u64 *)(a1 + 0xD8);
-	if (hashmap == 0 || hash == 0) return;
-	auto hashermap = (map<u64, AetLayerArgs *> *)(hashmap + 0x10);
-	auto charaList = hashermap->find (hash);
-	if (!charaList.has_value ()) return;
 
 	AetComposition comp;
-	GetComposition (&comp, (*charaList.value ())->id);
+	GetComposition (&comp, charaListId);
 
 	auto pvId = **(i32 **)(data + 0x18);
 	if (auto entry = getPvDbEntry (pvId)) {
@@ -732,31 +737,20 @@ HOOK (void, DrawMdlIcon, 0x1406940F0, u64 a1, i32 a2, u8 isIn) {
 
 HOOK (void, DisplayMdl, 0x1406947B0, u64 a1) {
 	if (a1 == 0) return;
-	auto data = *(u64 *)(a1 + 0x08);
-	if (data == 0) return;
-	i32 selectedChara = *(i32 *)(data + 0x40);
-	auto hashmap      = *(u64 *)(data + 0x958);
-	auto hash         = *(u64 *)(a1 + 0xD8);
-	if (hashmap == 0 || hash == 0) return;
-	auto hashermap = (map<u64, AetLayerArgs *> *)(hashmap + 0x10);
-	auto charaList = hashermap->find (hash);
-	if (!charaList.has_value ()) return;
 
-	if (inited) {
-		if (strcmp ((*(charaList.value ()))->layerName, "mdl_chara_list_down") == 0 || strcmp ((*(charaList.value ()))->layerName, "mdl_chara_list_up") == 0) {
-			if (auto layer = aets->find ((*(charaList.value ()))->id)) {
-				if (layer.value ()->currentFrame >= layer.value ()->loopEnd) {
-					strcpy ((*(charaList.value ()))->layerName, "mdl_chara_list_loop");
-					(*(charaList.value ()))->play (&(*charaList.value ())->id);
-					StopAet (&mdlPlateIndex[0]);
-					StopAet (&mdlPlateIndex[9]);
-				}
-			}
+	if (auto aet = aets->find (charaListId)) {
+		if (aet.value ()->currentFrame >= aet.value ()->layer->endTime - 1 && strcmp (aet.value ()->layer->name, "mdl_chara_list_loop") != 0) {
+			AetLayerArgs args ("AET_NSWGAM_CUSTOM_MAIN", "mdl_chara_list_loop", 14, AetAction::NONE);
+			args.play (&charaListId);
 		}
 	}
 
+	auto data = *(u64 *)(a1 + 0x08);
+	if (data == 0) return;
+	i32 selectedChara = *(i32 *)(data + 0x40);
+
 	AetComposition comp;
-	GetComposition (&comp, (*charaList.value ())->id);
+	GetComposition (&comp, charaListId);
 
 	for (i32 i = 0; i < 10; i++) {
 		char placeholderName[64];
@@ -821,6 +815,8 @@ init () {
 
 	INSTALL_HOOK (SetModuleChoiceListPriority);
 	INSTALL_HOOK (SetHairstyleChoiceListPriority);
+	INSTALL_HOOK (SetItemChoiceListPriority);
+
 	INSTALL_HOOK (Memset);
 
 	INSTALL_HOOK (DestroyModuleSelect);
@@ -859,6 +855,7 @@ init () {
 
 	WRITE_NOP (0x140691E27, 3); // SetModuleChoiceListPriority
 	WRITE_NOP (0x1406893D7, 3); // SetHairstyleChoiceListPriority
+	WRITE_NOP (0x14068D361, 3); // SetItemChoiceListPriority
 
 	WRITE_MEMORY (0x140677FA9, i32, 26); // Choice_conf priority
 	WRITE_MEMORY (0x140677E86, i32, 27); // Choice_conf button priority
