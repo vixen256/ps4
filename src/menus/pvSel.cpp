@@ -578,11 +578,9 @@ HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a
 		auto nc = GetModuleHandle ("NewClassics.dll");
 		if (!nc) return;
 
-		auto FindSongEntry  = (nc::FindSongEntry)GetProcAddress (nc, "FindSongEntry");
-		auto FindChart      = (nc::FindChart)GetProcAddress (nc, "FindChart");
 		auto SetStateSong   = (nc::SetStateSong)GetProcAddress (nc, "SetStateSong");
 		auto ResetStateSong = (nc::ResetStateSong)GetProcAddress (nc, "ResetStateSong");
-		if (!FindSongEntry || !FindChart || !SetStateSong || !ResetStateSong) return;
+		if (!SetStateSong || !ResetStateSong) return;
 
 		auto index = *(i32 *)0x140DAB3A8;
 		if (!survivalIndexIds.contains (index) || !survivalIdStyles.contains (survivalIndexIds[index])) {
