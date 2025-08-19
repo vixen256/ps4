@@ -57,6 +57,7 @@ library(
 		'src/menus/options.cpp',
 		'src/menus/pause.cpp',
 		'src/menus/pvSel.cpp',
+		'src/menus/pvSel.asm',
 		'src/menus/customize.cpp',
 		'src/menus/customize.asm',
 		'src/menus/result.cpp',

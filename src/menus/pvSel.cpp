@@ -605,6 +605,12 @@ HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a
 	}
 }
 
+extern "C" {
+HOOK (void, InitSongListNum, 0x14020D92E);
+HOOK (void, GetMaxSongListNumFiltered, 0x140205CEF);
+HOOK (void, GetMaxSongListNumTotal, 0x140205BC6);
+}
+
 void
 init () {
 	taskAddition addition;
@@ -620,5 +626,9 @@ init () {
 	INSTALL_HOOK (GetSurvivalSprite);
 	INSTALL_HOOK (chara_index_get_chara_name);
 	INSTALL_HOOK (SetPvLoadData);
+
+	INSTALL_HOOK (InitSongListNum);
+	INSTALL_HOOK (GetMaxSongListNumFiltered);
+	INSTALL_HOOK (GetMaxSongListNumTotal);
 }
 } // namespace pvSel
