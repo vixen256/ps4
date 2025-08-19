@@ -404,21 +404,6 @@ PvSelDisplay (u64 This) {
 	return false;
 }
 
-// Hacky fix for song count in bottom left without needing to update the aet
-HOOK (void, GetListNumAllData, 0x14020E2F0, u64 a1, u32 index, Vec3 *position, Vec3 *scale, u32 *colour) {
-	if (index < 4) {
-		originalGetListNumAllData (a1, index, position, scale, colour);
-	} else {
-		auto comp  = (AetComposition *)(a1 + 0x1130);
-		auto num02 = comp->find (string ("p_list_all_num02_c"));
-		auto num03 = comp->find (string ("p_list_all_num03_c"));
-		auto diff  = num02.value ()->position.x - num03.value ()->position.x;
-		if (position != 0) *position = Vec3 (num03.value ()->position.x - (diff * (index - 3)), num03.value ()->position.y, num03.value ()->position.z);
-		if (scale != 0) *scale = Vec3 (num03.value ()->matrix.x.x, num03.value ()->matrix.y.y, num03.value ()->matrix.z.z);
-		if (colour != 0) *colour = ((u8)(num03.value ()->opacity * 255.0) << 18) | 0xFFFFFF;
-	}
-}
-
 bool
 PvSelInit (u64 This) {
 	unhide ();
@@ -630,7 +615,6 @@ init () {
 	addTaskAddition ("PVsel", addition);
 
 	WRITE_MEMORY (0x14CC5EF18, void *, nswgamPVSelTask);
-	INSTALL_HOOK (GetListNumAllData);
 
 	INSTALL_HOOK (PvDbRead);
 	INSTALL_HOOK (GetSurvivalSprite);
