@@ -74,6 +74,13 @@ struct Vec4 {
 	Vec4 operator* (f32 scale) { return Vec4 (this->x * scale, this->y * scale, this->z * scale, this->w * scale); }
 };
 
+struct mat4 {
+	Vec4 x;
+	Vec4 y;
+	Vec4 z;
+	Vec4 w;
+};
+
 FUNCTION_PTR_H (void *, operatorNew, u64);
 FUNCTION_PTR_H (void *, operatorDelete, void *);
 struct string;
@@ -526,12 +533,7 @@ struct AetLayerArgs {
 };
 
 struct AetLayoutData {
-	struct {
-		Vec4 x;
-		Vec4 y;
-		Vec4 z;
-		Vec4 w;
-	} matrix;
+	mat4 matrix;
 	Vec3 position;
 	Vec3 anchor;
 	f32 width;
@@ -1060,13 +1062,6 @@ struct Texture {
 	i32 size;
 	i32 unk_0x20;
 	DirectXTexture *dx_texture;
-};
-
-struct mat4 {
-	Vec4 x;
-	Vec4 y;
-	Vec4 z;
-	Vec4 w;
 };
 
 struct SprArgs {

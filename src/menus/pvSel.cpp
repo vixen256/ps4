@@ -401,6 +401,40 @@ PvSelDisplay (u64 This) {
 	selectorImgData.setPosition (txtLoc);
 	selectorImgData.play (&selectorImgId);
 
+	if (!IsSurvival ()) {
+		auto songList = (AetComposition *)(This + 0x56A8);
+		for (int i = 0; i <= 12; i++) {
+			auto offset = *(i32 *)(This + 0x55E8 + 0x9C);
+			auto pvs    = (vector<PvSpriteId **> **)(This + 0x36EE8 + 0xF0);
+			if (pvs == nullptr || *pvs == nullptr) continue;
+			auto ppv = (*pvs)->at (*(u64 *)(*(u64 *)(This + 0x55E8 + 0xB8) + 8 + ((i + offset) * 16)));
+			if (!ppv.has_value () || **ppv == nullptr || ***ppv == nullptr || (***ppv)->pvData == nullptr) continue;
+			auto pv = (***ppv)->pvData;
+			if (!pv->HasDifficulty (3, true) || pv->id == -1) continue;
+
+			char buf[64];
+			sprintf (buf, "p_icon_extra%02d_c", i + offset);
+			auto pplaceholder = songList->find (string (buf));
+			if (!pplaceholder.has_value ()) continue;
+
+			auto placeholder = *pplaceholder;
+			SprArgs args;
+			args.mat      = placeholder->matrix;
+			args.color[3] = placeholder->opacity * 255;
+			args.layer    = 11;
+			if (i + offset == 5) args.layer = 14;
+			args.resolution_mode_sprite = RESOLUTION_MODE_FHD;
+			args.resolution_mode_screen = RESOLUTION_MODE_FHD;
+
+			const char *name = "SPR_PS4_MENU_ICON_EXTRA";
+			if (i + offset == 5) name = "SPR_PS4_MENU_ICON_EXTRA_SEL";
+			auto str = stringRange (name);
+			args.id  = *getSpriteId (nullptr, &str);
+
+			DrawSpr (&args);
+		}
+	}
+
 	return false;
 }
 
