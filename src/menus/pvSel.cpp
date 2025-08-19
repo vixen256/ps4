@@ -578,34 +578,23 @@ HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a
 		auto nc = GetModuleHandle ("NewClassics.dll");
 		if (!nc) return;
 
-		auto FindSongEntry = (nc::FindSongEntry)GetProcAddress (nc, "FindSongEntry");
-		auto FindChart     = (nc::FindChart)GetProcAddress (nc, "FindChart");
-		auto GetState      = (nc::GetState)GetProcAddress (nc, "GetState");
-		if (!FindSongEntry || !FindChart || !GetState) return;
+		auto FindSongEntry  = (nc::FindSongEntry)GetProcAddress (nc, "FindSongEntry");
+		auto FindChart      = (nc::FindChart)GetProcAddress (nc, "FindChart");
+		auto SetStateSong   = (nc::SetStateSong)GetProcAddress (nc, "SetStateSong");
+		auto ResetStateSong = (nc::ResetStateSong)GetProcAddress (nc, "ResetStateSong");
+		if (!FindSongEntry || !FindChart || !SetStateSong || !ResetStateSong) return;
 
 		auto index = *(i32 *)0x140DAB3A8;
-		auto state = GetState ();
 		if (!survivalIndexIds.contains (index) || !survivalIdStyles.contains (survivalIndexIds[index])) {
-			state->nc_song_entry.hasValue  = false;
-			state->nc_chart_entry.hasValue = false;
+			ResetStateSong ();
 			return;
 		}
 
 		auto style = survivalIdStyles[survivalIndexIds[index]];
-		auto song  = FindSongEntry (info->pvId);
-		auto chart = FindChart (info->pvId, info->difficulty, info->extra, style);
-
-		if (!song || !chart) {
-			state->nc_song_entry.hasValue  = false;
-			state->nc_chart_entry.hasValue = false;
+		if (!SetStateSong (info->pvId, info->difficulty, info->extra, style)) {
+			ResetStateSong ();
 			return;
 		}
-
-		state->nc_song_entry.value    = *song;
-		state->nc_song_entry.hasValue = true;
-
-		state->nc_chart_entry.value    = *chart;
-		state->nc_chart_entry.hasValue = true;
 	}
 }
 
