@@ -595,7 +595,11 @@ HOOK (void, SetPvLoadData, 0x14040B600, u64 PvLoadData, PvLoadInfo *info, bool a
 		auto song  = FindSongEntry (info->pvId);
 		auto chart = FindChart (info->pvId, info->difficulty, info->extra, style);
 
-		if (!song || !chart) return;
+		if (!song || !chart) {
+			state->nc_song_entry.hasValue  = false;
+			state->nc_chart_entry.hasValue = false;
+			return;
+		}
 
 		state->nc_song_entry.value    = *song;
 		state->nc_song_entry.hasValue = true;

@@ -379,6 +379,7 @@ struct UIState {
 	// TODO: Change all the layers to use AetElement
 	diva::shared_ptr<AetElement> elements[LayerUI_Max];
 	bool aet_visibility[LayerUI_Max];
+	int32_t hit_effect_index;
 };
 
 struct ScoreState {
@@ -413,6 +414,8 @@ struct StateEx {
 	int32_t effect_index                     = 0;
 	diva::optional<SongEntry> nc_song_entry;
 	diva::optional<ChartEntry> nc_chart_entry;
+	diva::map<int32_t, diva::string> fail_target_effect_map;
+	diva::map<int32_t, diva::string> success_target_effect_map;
 	ScoreState score;
 };
 #pragma pack(pop)

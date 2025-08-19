@@ -9,7 +9,7 @@ extern implOfGetMaxSongListNumTotal
 extern whereGetMaxSongListNumTotal
 
 song_list_num: db "song_list_num", 0, 0, 0
-song_list_num_ex: db "song_list_num_ex", 0
+song_list_num_ex: db "song_list_num_ex", 0, 0, 0, 0, 0, 0, 0
 
 section .text:
 GetSongCount:
