@@ -366,24 +366,6 @@ struct _stringRangeBase {
 using stringRange  = _stringRangeBase<char>;
 using wstringRange = _stringRangeBase<wchar_t>;
 
-template <typename T>
-struct optional {
-	T value;
-	bool hasValue;
-};
-
-template <typename T>
-struct shared_ptr {
-	T *ptr;
-	u32 uses;
-	u32 weaks;
-};
-
-template <typename T, u64 size>
-struct array {
-	T elems[size];
-};
-
 enum class State : i32 {
 	STARTUP     = 0,
 	ADVERTISE   = 1,
