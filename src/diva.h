@@ -306,12 +306,12 @@ struct vector {
 			return;
 		}
 
-		if (this->remaining_capcity () > 0) {
-			memset ((void *)this->last, 0, sizeof (T));
-			*this->last = value;
-			this->last++;
-			return;
-		}
+		if (this->remaining_capcity () == 0) this->reserve (this->length () * 2);
+
+		memset ((void *)this->last, 0, sizeof (T));
+		*this->last = value;
+		this->last++;
+		return;
 	}
 
 	void clear () { this->last = this->first; }
