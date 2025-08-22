@@ -295,18 +295,28 @@ struct vector {
 		return std::optional (&this->first[index]);
 	}
 
-	void push_back (const T &value) {
+	void reserve (u64 n) {
 		if (this->first == nullptr) {
-			this->first        = allocate<T> (16);
+			this->first        = allocate<T> (n);
 			this->last         = this->first;
-			this->capacity_end = (void *)((u64)this->first + (16 * sizeof (T)));
-			memset ((void *)this->last, 0, sizeof (T));
-			*this->last = value;
-			this->last++;
+			this->capacity_end = (void *)((u64)this->first + (n * sizeof (T)));
 			return;
 		}
 
-		if (this->remaining_capcity () == 0) this->reserve (this->length () * 2);
+		if (this->capacity () > n) return;
+
+		T *new_first   = allocate<T> (n);
+		u64 old_length = (u64)this->last - (u64)this->first;
+		memcpy ((void *)new_first, (void *)this->first, old_length);
+		deallocate (this->first);
+
+		this->first        = new_first;
+		this->last         = (T *)((u64)new_first + old_length);
+		this->capacity_end = (void *)((u64)new_first + (n * sizeof (T)));
+	}
+
+	void push_back (const T &value) {
+		if (this->remaining_capcity () == 0) this->reserve ((this->length () * 2) | 16);
 
 		memset ((void *)this->last, 0, sizeof (T));
 		*this->last = value;
@@ -322,19 +332,6 @@ struct vector {
 
 	T *begin () { return this->first; }
 	T *end () { return this->last; }
-
-	void reserve (u64 n) {
-		if (this->capacity () > n) return;
-
-		T *new_first   = allocate<T> (n);
-		u64 old_length = (u64)this->last - (u64)this->first;
-		memcpy ((void *)new_first, (void *)this->first, old_length);
-		deallocate (this->first);
-
-		this->first        = new_first;
-		this->last         = (T *)((u64)new_first + old_length);
-		this->capacity_end = (void *)((u64)new_first + (n * sizeof (T)));
-	}
 
 	void operator= (const vector<T> &other) {
 		this->clear ();
