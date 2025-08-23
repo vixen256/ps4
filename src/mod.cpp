@@ -81,7 +81,9 @@ std::set<std::string> themeStrings = {"option_sub_menu_eachsong",
                                       "cmn_win_help",
                                       "btn_close",
                                       "savedata_warning_dialog",
-                                      "cmn_win_m"};
+                                      "cmn_win_m",
+                                      "cmn_menu_yes",
+                                      "cmn_menu_no"};
 
 std::set<std::string> themeStringsDx = {
     "press_a_button",    "nswgam_adv_bg",  "setting_menu_bg_arcade_base_in", "setting_menu_bg_arcade_base_up", "setting_menu_bg_arcade_base_down", "option_top_menu loop", "stat_base_ft",

@@ -1,5 +1,8 @@
 #include "diva.h"
 
+using namespace diva;
+extern i32 theme;
+
 namespace gallery {
 i32 menuTxt1Id    = 0;
 i32 menuTxt2Id    = 0;
@@ -7,9 +10,6 @@ i32 menuTxt3Id    = 0;
 i32 menuTxt4Id    = 0;
 i32 menuTxt5Id    = 0;
 i32 menuTxtBaseId = 0;
-
-using diva::AetAction;
-using diva::AetLayerArgs;
 
 void
 playGalleryTxt (i32 button, AetAction action) {
@@ -70,6 +70,15 @@ HOOK (void, LoadAndPlayAet, 0x1401AF0E0, diva::AetLayerArgs *args, AetAction act
 	args->play (&args->unk_0x15C);
 }
 
+HOOK (void, PlayStatBase, 0x1401D4120, u64 a1, i32 a2) {
+	originalPlayStatBase (a1, a2);
+	if (theme != 3) return;
+	auto str = (string *)(a1 + 0x360);
+	if (strcmp (str->c_str (), "stat_base_ft") == 0) *str = "stat_base_dx";
+	else if (strcmp (str->c_str (), "stat_base_up_ft") == 0) *str = "stat_base_up_dx";
+	else if (strcmp (str->c_str (), "stat_base_down_ft") == 0) *str = "stat_base_down_dx";
+}
+
 void
 init () {
 	diva::taskAddition addition;
@@ -77,5 +86,6 @@ init () {
 	diva::addTaskAddition ("CS_GALLERY", addition);
 
 	INSTALL_HOOK (LoadAndPlayAet);
+	INSTALL_HOOK (PlayStatBase);
 }
 } // namespace gallery
