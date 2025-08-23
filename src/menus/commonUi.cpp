@@ -30,8 +30,7 @@ CommonUiDialogDisplay (u64 This) {
 
 			if (out && btnLayer.value ()->currentFrame >= btnLayer.value ()->endTime - 1) {
 				StopAet (&btnArgs->unk_0x15C);
-				btnArgs->unk_0x15C = 0;
-				out                = false;
+				out = false;
 			}
 		}
 	}

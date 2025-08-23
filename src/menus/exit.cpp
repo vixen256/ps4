@@ -9,7 +9,6 @@ i32 menuAetId      = 0;
 i32 yesButtonAetId = 0;
 i32 noButtonAetId  = 0;
 i32 hoveredButton  = 0;
-char *yesButtonName;
 char *noButtonName;
 Vec3 yesButtonLoc;
 Vec3 noButtonLoc;
@@ -18,8 +17,8 @@ Vec4 noButtonRect;
 
 void
 moveDown () {
-	AetLayerArgs yesButtonAetData ("AET_PS4_MENU_MAIN", yesButtonName, 0x13, AetAction::IN_ONCE);
-	AetLayerArgs noButtonAetData ("AET_PS4_MENU_MAIN", noButtonName, 0x13, AetAction::LOOP);
+	AetLayerArgs yesButtonAetData ("AET_PS4_MENU_MAIN", "cmn_menu_yes", 0x13, AetAction::IN_ONCE);
+	AetLayerArgs noButtonAetData ("AET_PS4_MENU_MAIN", "cmn_menu_no", 0x13, AetAction::LOOP);
 
 	yesButtonAetData.setPosition (yesButtonLoc);
 	noButtonAetData.setPosition (noButtonLoc);
@@ -33,8 +32,8 @@ moveDown () {
 
 void
 moveUp () {
-	AetLayerArgs yesButtonAetData ("AET_PS4_MENU_MAIN", yesButtonName, 0x13, AetAction::LOOP);
-	AetLayerArgs noButtonAetData ("AET_PS4_MENU_MAIN", noButtonName, 0x13, AetAction::IN_ONCE);
+	AetLayerArgs yesButtonAetData ("AET_PS4_MENU_MAIN", "cmn_menu_yes", 0x13, AetAction::LOOP);
+	AetLayerArgs noButtonAetData ("AET_PS4_MENU_MAIN", "cmn_menu_no", 0x13, AetAction::IN_ONCE);
 
 	yesButtonAetData.setPosition (yesButtonLoc);
 	noButtonAetData.setPosition (noButtonLoc);
@@ -80,8 +79,8 @@ initMenu () {
 		noButtonOpacity = layer->opacity;
 	}
 
-	AetLayerArgs yesButtonAetData ("AET_PS4_MENU_MAIN", yesButtonName, 0x13, AetAction::IN_ONCE);
-	AetLayerArgs noButtonAetData ("AET_PS4_MENU_MAIN", noButtonName, 0x13, AetAction::LOOP);
+	AetLayerArgs yesButtonAetData ("AET_PS4_MENU_MAIN", "cmn_menu_yes", 0x13, AetAction::IN_ONCE);
+	AetLayerArgs noButtonAetData ("AET_PS4_MENU_MAIN", "cmn_menu_no", 0x13, AetAction::LOOP);
 
 	yesButtonAetData.setPosition (yesButtonLoc);
 	noButtonAetData.setPosition (noButtonLoc);
@@ -151,8 +150,6 @@ CsMenuDisplay (u64 This) {
 
 void
 init () {
-	yesButtonName = appendTheme ("cmn_menu_yes");
-	noButtonName  = appendTheme ("cmn_menu_no");
 	taskAddition addition;
 	addition.loop    = CsMenuLoop;
 	addition.display = CsMenuDisplay;

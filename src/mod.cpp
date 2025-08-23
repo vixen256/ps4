@@ -83,6 +83,10 @@ std::set<std::string> themeStrings = {"option_sub_menu_eachsong",
                                       "savedata_warning_dialog",
                                       "cmn_win_m"};
 
+std::set<std::string> themeStringsDx = {
+    "press_a_button",    "nswgam_adv_bg",  "setting_menu_bg_arcade_base_in", "setting_menu_bg_arcade_base_up", "setting_menu_bg_arcade_base_down", "option_top_menu loop", "stat_base_ft",
+    "stat_base_down_ft", "stat_base_up_ft"};
+
 void
 HandleLayer (AetLayer *layer) {
 	if (layer->itemType == AetItemType::AET_ITEM_TYPE_AUDIO) layer->flags &= ~0x8000;
@@ -106,26 +110,44 @@ HOOK (i32 *, PlayAetLayerH, 0x1402CA220, diva::AetLayerArgs *args, i32 id) {
 					HandleLayer (&comp->layers[i]);
 		}
 	}
+
 	if (args == 0 || args->layerName == 0 || (u64)args->layerName == (u64)(i64)-1) return originalPlayAetLayerH (args, id);
-	if (themeStrings.find (std::string (args->layerName)) != themeStrings.end ()) {
+
+	if (theme == 3 && themeStringsDx.find (std::string (args->layerName)) != themeStringsDx.end ()) {
+		if (strcmp (args->layerName, "stat_base_ft") == 0) args->layerName = "stat_base_dx";
+		else if (strcmp (args->layerName, "stat_base_up_ft") == 0) args->layerName = "stat_base_up_dx";
+		else if (strcmp (args->layerName, "stat_base_down_ft") == 0) args->layerName = "stat_base_down_dx";
+		else args->layerName = diva::appendThemeDx (args->layerName);
+	} else if (themeStrings.find (std::string (args->layerName)) != themeStrings.end ()) {
 		if (strcmp (args->layerName, "gam_btn_retry") == 0 && diva::IsSurvival ()) {
 			args->StartMarker = diva::string ("st_sp_02");
 			args->EndMarker   = diva::string ("ed_sp_02");
 		}
 		args->layerName = diva::appendTheme (args->layerName);
-		return originalPlayAetLayerH (args, id);
 	}
+
 	return originalPlayAetLayerH (args, id);
 }
 
 HOOK (void, LoadAetFrameH, 0x1402CA590, void *data, i32 aetSceneId, const char *layerName, AetAction action, i32 layer, char *a6, float frame) {
 	if (layerName == 0) return originalLoadAetFrameH (data, aetSceneId, layerName, action, layer, a6, frame);
+
+	if (theme == 3) {
+		for (auto str : themeStringsDx) {
+			if (strcmp (str.c_str (), layerName) == 0) {
+				const char *theme = diva::appendThemeDx (layerName);
+				return originalLoadAetFrameH (data, aetSceneId, theme, action, layer, a6, frame);
+			}
+		}
+	}
+
 	for (auto str : themeStrings) {
 		if (strcmp (str.c_str (), layerName) == 0) {
 			const char *theme = diva::appendTheme (layerName);
 			return originalLoadAetFrameH (data, aetSceneId, theme, action, layer, a6, frame);
 		}
 	}
+
 	return originalLoadAetFrameH (data, aetSceneId, layerName, action, layer, a6, frame);
 }
 

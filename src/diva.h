@@ -1183,9 +1183,10 @@ FUNCTION_PTR_H (u32 *, getSpriteId, void *a1, stringRange *name);
 FUNCTION_PTR_H (u32 *, getSprSetId, void *a1, stringRange *name);
 
 void appendThemeInPlace (char *name);
+void appendThemeInPlaceDx (char *name);
 char *appendTheme (const char *name);
+char *appendThemeDx (const char *name);
 void appendStringInPlace (string *str, const char *append);
-void appendThemeInPlaceString (string *name);
 InputType getInputType ();
 bool isMovieOnly (PvDbEntry *entry);
 std::optional<PvDbEntry *> getPvDbEntry (i32 id);

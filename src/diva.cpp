@@ -88,11 +88,30 @@ appendThemeInPlace (char *name) {
 	}
 }
 
+void
+appendThemeInPlaceDx (char *name) {
+	switch (theme) {
+	case 1: strcat (name, "_f"); break;
+	case 2: strcat (name, "_t"); break;
+	case 3: strcat (name, "_dx"); break;
+	default: strcat (name, "_ft"); break;
+	}
+}
+
 char *
 appendTheme (const char *name) {
 	char *themeStr = (char *)calloc (strlen (name) + 5, sizeof (char));
 	strcpy (themeStr, name);
 	appendThemeInPlace (themeStr);
+
+	return themeStr;
+}
+
+char *
+appendThemeDx (const char *name) {
+	char *themeStr = (char *)calloc (strlen (name) + 5, sizeof (char));
+	strcpy (themeStr, name);
+	appendThemeInPlaceDx (themeStr);
 
 	return themeStr;
 }
@@ -121,8 +140,8 @@ appendStringInPlace (string *str, const char *append) {
 void
 appendThemeInPlaceString (string *name) {
 	switch (theme) {
-	case 1: appendStringInPlace (name, "_f"); break;
-	case 2: appendStringInPlace (name, "_t"); break;
+	case 2: appendStringInPlace (name, "_f"); break;
+	case 3: appendStringInPlace (name, "_t"); break;
 	default: appendStringInPlace (name, "_ft"); break;
 	}
 }

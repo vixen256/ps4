@@ -9,8 +9,7 @@ i32 menuTxt4Id = 0;
 i32 menuTxt5Id = 0;
 i32 menuTxt6Id = 0;
 i32 footerId;
-char *footerName = (char *)calloc (32, sizeof (char));
-char *topLoopName;
+char *footerName        = (char *)calloc (32, sizeof (char));
 i32 optionMenuTopId     = 0;
 InputType previousInput = InputType::UNKNOWN;
 u8 previousButton       = 0;
@@ -83,7 +82,7 @@ playMenuTxt (u8 button, u8 subMenu, AetAction action) {
 
 bool
 OptionMenuSwitchInit (u64 task) {
-	AetLayerArgs optionMenuTopData ("AET_NSWGAM_OPTION_MAIN", topLoopName, 7, AetAction::NONE);
+	AetLayerArgs optionMenuTopData ("AET_NSWGAM_OPTION_MAIN", "option_top_menu loop", 7, AetAction::NONE);
 	optionMenuTopData.play (&optionMenuTopId);
 
 	InputType input = diva::getInputType ();
@@ -110,7 +109,7 @@ OptionMenuSwitchLoop (u64 task) {
 	InputType input = diva::getInputType ();
 	if (input != previousInput || previousSubMenu != subMenu) {
 		sprintf (footerName, "footer_button_%02d_%02d", (bool)subMenu + 1, (i32)input);
-		AetLayerArgs footerData ("AET_NSWGAM_OPTION_MAIN", footerName, 13, AetAction::NONE);
+		AetLayerArgs footerData ("AET_NSWGAM_OPTION_MAIN", "option_top_menu loop", 13, AetAction::NONE);
 		footerData.play (&footerId);
 		previousInput = input;
 	}
@@ -139,8 +138,6 @@ OptionMenuSwitchDestroy (u64 task) {
 
 void
 init () {
-	topLoopName = diva::appendTheme ("option_top_menu loop");
-
 	taskAddition addition;
 	addition.init    = OptionMenuSwitchInit;
 	addition.loop    = OptionMenuSwitchLoop;
