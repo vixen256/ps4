@@ -457,17 +457,7 @@ PvSelDestroy (u64 This) {
 bool readSurvivalDb = false;
 std::map<i32, i32> survivalIndexIds;
 std::map<i32, nc::GameStyle> survivalIdStyles;
-std::vector<u32> pendingSprSets;
-
-void
-loadSprSetWait () {
-	while (pendingSprSets.size () > 0) {
-		for (auto it = pendingSprSets.begin (); it != pendingSprSets.end ();)
-			if (LoadSprSetFinish (*it) == 0) it = pendingSprSets.erase (it);
-			else it++;
-		std::this_thread::sleep_for (std::chrono::milliseconds (16));
-	}
-}
+std::set<u32> pendingSprSets;
 
 HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 	auto res      = originalPvDbRead (task);
@@ -477,6 +467,10 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 		auto DbReady = (nc::DbReady)GetProcAddress (nc, "DbReady");
 		if (DbReady) ncLoaded = DbReady ();
 	}
+
+	for (auto it = pendingSprSets.begin (); it != pendingSprSets.end ();)
+		if (LoadSprSetFinish (*it) == 0) it = pendingSprSets.erase (it);
+		else it++;
 
 	if (*(i32 *)(task + 0x68) == 0 && !readSurvivalDb && *(i32 *)(0x140DAB380 + 0x70) == 3 && ncLoaded) {
 		readSurvivalDb = true;
@@ -557,13 +551,8 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 				name = stringRange ();
 				LoadSprSet (set, &name);
 
-				pendingSprSets.push_back (set);
+				pendingSprSets.insert (set);
 			}
-		}
-
-		if (pendingSprSets.size () > 0) {
-			std::thread t (loadSprSetWait);
-			t.detach ();
 		}
 
 		auto survivalCourses = (vector<vector<SurvivalSong>> *)(0x140DAB380 + 0x48);
