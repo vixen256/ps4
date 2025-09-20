@@ -793,14 +793,14 @@ HOOK (void, DisplayMdl, 0x1406947B0, u64 a1) {
 }
 
 // Names and original func and values found by koren, 0x18CDE0 in CUSA06211
-FUNCTION_PTR (void *, light_set_get_by_id, 0x1404326e0, i32 id);
-FUNCTION_PTR (void, light_set_type, 0x155f73310, void *light_set, i32 type);
+FUNCTION_PTR (void *, light_set_get_by_id, 0x1404326E0, i32 id);
+FUNCTION_PTR (void, light_set_type, 0x155F73310, void *light_set, i32 type);
 FUNCTION_PTR (void, light_set_ambient, 0x140432820, void *light_set, f32, f32, f32, f32);
-FUNCTION_PTR (void, light_set_diffuse, 0x155422d40, void *light_set, f32, f32, f32, f32);
+FUNCTION_PTR (void, light_set_diffuse, 0x155422D40, void *light_set, f32, f32, f32, f32);
 FUNCTION_PTR (void, light_set_specular, 0x140432900, void *light_set, f32, f32, f32, f32);
 FUNCTION_PTR (void, light_set_position, 0x140432980, void *light_set, f32, f32, f32);
-FUNCTION_PTR (void *, render_get, 0x14049f8d0);
-FUNCTION_PTR (void, render_set_exposure, 0x1404a0490, void *render, f32);
+FUNCTION_PTR (void *, render_get, 0x14049F8D0);
+FUNCTION_PTR (void, render_set_exposure, 0x1404A0490, void *render, f32);
 
 HOOK (void, CustomizeSetLightingInfo, 0x14f621A00) {
 	originalCustomizeSetLightingInfo ();
@@ -905,5 +905,7 @@ init () {
 	WRITE_MEMORY (0x140688C19, i32, 17); // Items
 
 	INSTALL_HOOK (CustomizeSetLightingInfo);
+
+	WRITE_MEMORY (0x14067D5C3, u32, 0x10001); // Draw song name with border
 }
 } // namespace customize
