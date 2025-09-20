@@ -1,3 +1,4 @@
+#include "pvGame.fxh"
 #include "diva.h"
 #include <png.h>
 
@@ -313,24 +314,7 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 		return;
 	}
 
-	ID3DBlob *shaderBlob;
-	ID3DBlob *errorBlob;
-
-	const char *shaderText = "\
-Texture2D<float4> input : register(t0);\
-RWTexture2D<float4> output : register(u0);\
-SamplerState Sampler : register(s0);\
-[numthreads(8, 8, 1)]\
-void main(uint2 dispatchThreadId : SV_DispatchThreadID) {\
-output[dispatchThreadId] = float4(input.SampleLevel(Sampler, float2(dispatchThreadId.x / 1920.0, dispatchThreadId.y / 1080.0), 0).xyz, 1.0);\
-}";
-
-	hr = D3DCompile (shaderText, strlen (shaderText), nullptr, nullptr, nullptr, "main", "cs_5_0", 0, 0, &shaderBlob, &errorBlob);
-	if (FAILED (hr)) {
-		MessageBoxA (0, (char *)errorBlob->GetBufferPointer (), "Shader compiler error", MB_OK | MB_ICONERROR);
-		return;
-	}
-	device->CreateComputeShader (shaderBlob->GetBufferPointer (), shaderBlob->GetBufferSize (), nullptr, &shader);
+	device->CreateComputeShader (shader_bytecode, sizeof (shader_bytecode), nullptr, &shader);
 
 	INSTALL_HOOK (DrawSprite);
 	INSTALL_HOOK (ProcessRenderCommand);

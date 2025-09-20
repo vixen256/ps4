@@ -440,6 +440,8 @@ PvSelDisplay (u64 This) {
 
 bool
 PvSelInit (u64 This) {
+	WRITE_MEMORY (0x14CC5EF18, void *, nswgamPVSelTask);
+
 	unhide ();
 	u64 pvLoadData = GetPvLoadData ();
 	if (pvLoadData) *(i32 *)(pvLoadData + 0x1D08) = -1;
@@ -450,6 +452,8 @@ PvSelInit (u64 This) {
 
 bool
 PvSelDestroy (u64 This) {
+	WRITE_MEMORY (0x14CC5EF18, void *, nullptr);
+
 	hide ();
 	return false;
 }
@@ -633,8 +637,6 @@ init () {
 	addition.destroy = PvSelDestroy;
 	addition.display = PvSelDisplay;
 	addTaskAddition ("PVsel", addition);
-
-	WRITE_MEMORY (0x14CC5EF18, void *, nswgamPVSelTask);
 
 	INSTALL_HOOK (PvDbRead);
 	INSTALL_HOOK (GetSurvivalSprite);

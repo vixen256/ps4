@@ -175,6 +175,8 @@ HOOK (void, GetBgmIndexCsResult2, 0x140237B1F);
 HOOK (void, GetBgmIndexCsResult3, 0x140237DFC);
 HOOK (void, GetBgmIndexCsResult4, 0x140237730);
 
+bool use_ps4_gamma = true;
+
 __declspec (dllexport) void
 init () {
 	freopen ("CONOUT$", "w", stdout);
@@ -183,7 +185,8 @@ init () {
 	auto config                    = toml_parse_file (file, NULL, 0);
 	fclose (file);
 	if (!config) {
-		theme = 0;
+		theme         = 0;
+		use_ps4_gamma = true;
 	} else {
 		auto data = toml_int_in (config, "theme");
 		if (!data.ok) theme = 0;
@@ -192,6 +195,10 @@ init () {
 		data = toml_bool_in (config, "screenshot_loading_screen");
 		if (!data.ok) screenshot_loading_screen = true;
 		else screenshot_loading_screen = data.u.b;
+
+		data = toml_bool_in (config, "use_ps4_gamma");
+		if (!data.ok) use_ps4_gamma = true;
+		else use_ps4_gamma = data.u.b;
 	}
 
 	INSTALL_HOOK (ChangeSubGameState);
@@ -312,5 +319,16 @@ preInit () {
 __declspec (dllexport) void
 D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext) {
 	pvGame::D3DInit (SwapChain, Device, DeviceContext);
+	if (use_ps4_gamma) gamma::D3DInit (SwapChain, Device, DeviceContext);
+}
+
+__declspec (dllexport) void
+OnResize (IDXGISwapChain *SwapChain) {
+	if (use_ps4_gamma) gamma::OnResize (SwapChain);
+}
+
+__declspec (dllexport) void
+OnFrame (IDXGISwapChain *SwapChain) {
+	if (use_ps4_gamma) gamma::OnFrame (SwapChain);
 }
 }

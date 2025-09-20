@@ -1,11 +1,20 @@
 enabled = true
-include = ["."]
-dll = ["ps4.dll"]
+name = "Future Tone UI"
+description = "A port and adaption of the UI from FT PS4."
+version = "1.3"
+date = "20.09.2024"
+author = "CoolChar, Vixen"
 
-# Options
-# 0: FTDX
-# 1: Future Sound
-# 2: Colourful tone
 theme = 0
 
+# Theme Options
+# 0: Future Tone
+# 1: Future Sound
+# 2: Colorful Tone
+# 3: Future Tone DX
+
+dll = ["ps4.dll"]
+include = ["."]
+
 screenshot_loading_screen = true
+use_ps4_gamma = true

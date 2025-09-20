@@ -71,6 +71,7 @@ library(
 		'src/menus/commonUi.cpp',
 		'src/menus/commonMenu.cpp',
 		'src/menus/leaderboard.cpp',
+		'src/menus/gamma.cpp',
 	],
 	name_prefix: ''
 )
