@@ -109,7 +109,7 @@ OptionMenuSwitchLoop (u64 task) {
 	InputType input = diva::getInputType ();
 	if (input != previousInput || previousSubMenu != subMenu) {
 		sprintf (footerName, "footer_button_%02d_%02d", (bool)subMenu + 1, (i32)input);
-		AetLayerArgs footerData ("AET_NSWGAM_OPTION_MAIN", "option_top_menu loop", 13, AetAction::NONE);
+		AetLayerArgs footerData ("AET_NSWGAM_OPTION_MAIN", "option_top_menu loop", 7, AetAction::NONE);
 		footerData.play (&footerId);
 		previousInput = input;
 	}
