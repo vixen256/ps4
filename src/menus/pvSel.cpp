@@ -312,8 +312,10 @@ PVSelLoop (u64 This) {
 		}
 	} else if (clickedPos.x == 0) hasClicked = false;
 
-	*(i32 *)(pvLoadData + 0x1D08)           = style;
-	*(u8 *)((u64)nswgamPVSelTask + 0x27538) = (u8)style; // Fix Future Tone Customization
+	*(i32 *)(pvLoadData + 0x1D08) = style;
+	// Fix Future Tone Customization
+	if (style == STYLE_NONE) *(u8 *)((u64)nswgamPVSelTask + 0x27538) = GetCurrentStyle ();
+	else *(u8 *)((u64)nswgamPVSelTask + 0x27538) = (u8)style;
 
 	if (*(i32 *)(This + 0xA8) != lastCover) {
 		*(i32 *)(This + 0x36A08) = 1;

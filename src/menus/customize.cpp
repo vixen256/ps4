@@ -802,18 +802,25 @@ FUNCTION_PTR (void, light_set_position, 0x140432980, void *light_set, f32, f32, 
 FUNCTION_PTR (void *, render_get, 0x14049F8D0);
 FUNCTION_PTR (void, render_set_exposure, 0x1404A0490, void *render, f32);
 
-HOOK (void, CustomizeSetLightingInfo, 0x14f621A00) {
+HOOK (void, CustomizeSetLightingInfo, 0x14F621A00) {
 	originalCustomizeSetLightingInfo ();
 
 	void *set = light_set_get_by_id (0); // LIGHT_SET_MAIN
 	light_set_type (set, 1);             // LIGHT_PARALLEL
-	light_set_ambient (set, 0.07, 0.07, 0.07, 1.0);
-	light_set_diffuse (set, 0.65, 0.65, 0.65, 1.0);
-	light_set_specular (set, 0.8f, 0.8f, 0.8f, 0.8f);
+	void *rend = render_get ();
 	light_set_position (set, -0.2f, 0.39272901f, 0.70158201f);
 
-	void *rend = render_get ();
-	render_set_exposure (rend, 2.5);
+	if (LoadLibrary ("FutureToneCustomization.dll")) {
+		bool isFt = GetCurrentStyle () == 0;
+		if (*(void **)0x14CC5EF18 != nullptr) isFt = *(u8 *)(*(u64 *)0x14CC5EF18 + 0x27538) == 0;
+
+		if (isFt) {
+			light_set_ambient (set, 0.07, 0.07, 0.07, 1.0);
+			light_set_diffuse (set, 0.65, 0.65, 0.65, 1.0);
+			light_set_specular (set, 0.8f, 0.8f, 0.8f, 0.8f);
+			render_set_exposure (rend, 2.5);
+		}
+	}
 }
 
 void
