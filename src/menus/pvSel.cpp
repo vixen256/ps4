@@ -281,7 +281,7 @@ PVSelLoop (u64 This) {
 	if (input == InputType::UNKNOWN) input = InputType::PLAYSTATION;
 
 	if (style == -1) {
-		style = GetCurrentStyle ();
+		style = *(u8 *)((u64)nswgamPVSelTask + 0x27538);
 		if (style == -1) style = STYLE_FT;
 		initStyle (getStyle (style, isMovie), input);
 		lastInputType = input;
@@ -443,6 +443,7 @@ PvSelDisplay (u64 This) {
 bool
 PvSelInit (u64 This) {
 	WRITE_MEMORY (0x14CC5EF18, void *, nswgamPVSelTask);
+	*(u8 *)((u64)nswgamPVSelTask + 0x27538) = GetCurrentStyle ();
 
 	unhide ();
 	u64 pvLoadData = GetPvLoadData ();
