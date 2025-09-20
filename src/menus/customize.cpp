@@ -792,6 +792,30 @@ HOOK (void, DisplayMdl, 0x1406947B0, u64 a1) {
 	}
 }
 
+// Names and original func and values found by koren, 0x18CDE0 in CUSA06211
+FUNCTION_PTR (void *, light_set_get_by_id, 0x1404326e0, i32 id);
+FUNCTION_PTR (void, light_set_type, 0x155f73310, void *light_set, i32 type);
+FUNCTION_PTR (void, light_set_ambient, 0x140432820, void *light_set, f32, f32, f32, f32);
+FUNCTION_PTR (void, light_set_diffuse, 0x155422d40, void *light_set, f32, f32, f32, f32);
+FUNCTION_PTR (void, light_set_specular, 0x140432900, void *light_set, f32, f32, f32, f32);
+FUNCTION_PTR (void, light_set_position, 0x140432980, void *light_set, f32, f32, f32);
+FUNCTION_PTR (void *, render_get, 0x14049f8d0);
+FUNCTION_PTR (void, render_set_exposure, 0x1404a0490, void *render, f32);
+
+HOOK (void, CustomizeSetLightingInfo, 0x14f621A00) {
+	originalCustomizeSetLightingInfo ();
+
+	void *set = light_set_get_by_id (0); // LIGHT_SET_MAIN
+	light_set_type (set, 1);             // LIGHT_PARALLEL
+	light_set_ambient (set, 0.07, 0.07, 0.07, 1.0);
+	light_set_diffuse (set, 0.65, 0.65, 0.65, 1.0);
+	light_set_specular (set, 0.8f, 0.8f, 0.8f, 0.8f);
+	light_set_position (set, -0.2f, 0.39272901f, 0.70158201f);
+
+	void *rend = render_get ();
+	render_set_exposure (rend, 2.5);
+}
+
 void
 init () {
 	INSTALL_HOOK (CustomizeSelInit);
@@ -876,8 +900,10 @@ init () {
 	INSTALL_HOOK (DisplayMdl);
 
 	// Load 18 modules at once
-	WRITE_MEMORY (0x140691739, i32, 0x11); // Modules
-	WRITE_MEMORY (0x14068CB86, i32, 0x11); // Hairstyles
-	WRITE_MEMORY (0x140688C19, i32, 0x11); // Items
+	WRITE_MEMORY (0x140691739, i32, 17); // Modules
+	WRITE_MEMORY (0x14068CB86, i32, 17); // Hairstyles
+	WRITE_MEMORY (0x140688C19, i32, 17); // Items
+
+	INSTALL_HOOK (CustomizeSetLightingInfo);
 }
 } // namespace customize
