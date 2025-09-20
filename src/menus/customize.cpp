@@ -808,7 +808,7 @@ HOOK (void, CustomizeSetLightingInfo, 0x14F621A00) {
 	void *set = light_set_get_by_id (0); // LIGHT_SET_MAIN
 	light_set_type (set, 1);             // LIGHT_PARALLEL
 	void *rend = render_get ();
-	light_set_position (set, -0.2f, 0.39272901f, 0.70158201f);
+	light_set_position (set, -0.2, 0.39272901, 0.70158201);
 
 	if (LoadLibrary ("FutureToneCustomization.dll")) {
 		bool isFt = GetCurrentStyle () == 0;
@@ -817,7 +817,7 @@ HOOK (void, CustomizeSetLightingInfo, 0x14F621A00) {
 		if (isFt) {
 			light_set_ambient (set, 0.07, 0.07, 0.07, 1.0);
 			light_set_diffuse (set, 0.65, 0.65, 0.65, 1.0);
-			light_set_specular (set, 0.8f, 0.8f, 0.8f, 0.8f);
+			light_set_specular (set, 0.8, 0.8, 0.8, 0.8);
 			render_set_exposure (rend, 2.5);
 		}
 	}
