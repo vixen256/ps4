@@ -805,9 +805,10 @@ FUNCTION_PTR (void, render_set_exposure, 0x1404A0490, void *render, f32);
 HOOK (void, CustomizeSetLightingInfo, 0x14F621A00) {
 	originalCustomizeSetLightingInfo ();
 
-	void *set = light_set_get_by_id (0); // LIGHT_SET_MAIN
-	light_set_type (set, 1);             // LIGHT_PARALLEL
+	void *set  = light_set_get_by_id (0); // LIGHT_SET_MAIN
 	void *rend = render_get ();
+
+	light_set_type (set, 1); // LIGHT_PARALLEL
 	light_set_position (set, -0.2, 0.39272901, 0.70158201);
 
 	if (LoadLibrary ("FutureToneCustomization.dll")) {
