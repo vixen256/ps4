@@ -84,7 +84,7 @@ i32 SettingsNoId    = 0;
 
 bool
 StageResultLoop (u64 task) {
-	if (*(bool *)(0x1412B50A4) == false && *(i32 *)(task + 0x68) == 0x0E) {
+	if (*(bool *)(0x1412B50A4) == false && *(i32 *)(task + 0x68) == 0x0E && (!IsSurvival () || SurvivalCleared ())) {
 		switch (SettingState) {
 		case 0: {
 			void *inputState = diva::GetInputState (0);
