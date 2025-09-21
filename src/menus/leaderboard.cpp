@@ -1069,6 +1069,9 @@ CsRankingLoop (u64 task) {
 					no.play (&SettingsNoId);
 				}
 
+				// Seen upload setting menu
+				*(bool *)(0x1412B50A4) = true;
+
 				SettingState = 2;
 			} else if (IsButtonTapped (inputState, Button::UP) || IsButtonTapped (inputState, Button::DOWN)) {
 				PlaySoundEffect ("se_ft_sys_select_01", 1.0);

@@ -1,4 +1,3 @@
-#include "diva.h"
 namespace exitMenu {
 void init ();
 } // namespace exitMenu

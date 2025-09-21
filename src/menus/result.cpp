@@ -29,7 +29,7 @@ StageResultInit (u64 task) {
 	waitingAchievementUpload = false;
 	waitingPackUpload        = false;
 
-	if (*(bool *)(0x1412B50A5) && !GetModuleHandleA ("LeaderboardBlocker.dll")) {
+	if (*(bool *)(0x1412B50A4) && *(bool *)(0x1412B50A5) && !GetModuleHandleA ("LeaderboardBlocker.dll")) {
 		if (IsSurvival ()) {
 			if (SurvivalCleared ()) {
 				auto index = *(i32 *)0x140DAB3A8;
@@ -76,8 +76,91 @@ StageResultInit (u64 task) {
 	return false;
 }
 
+u32 SettingState    = 0;
+bool *UploadSetting = (bool *)(0x1412B50A5);
+i32 SettingsYesNoId = 0;
+i32 SettingsYesId   = 0;
+i32 SettingsNoId    = 0;
+
 bool
 StageResultLoop (u64 task) {
+	if (*(bool *)(0x1412B50A4) == false && *(i32 *)(task + 0x68) == 0x0E) {
+		switch (SettingState) {
+		case 0: {
+			void *inputState = diva::GetInputState (0);
+			if (IsButtonTapped (inputState, Button::ACCEPT)) {
+				AetLayerArgs yesno ("AET_PS4_RESULT_MAIN", "upload_yesno", 0x13, AetAction::IN_LOOP);
+				yesno.play (&SettingsYesNoId);
+
+				AetLayerArgs yes ("AET_PS4_RESULT_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::IN_LOOP);
+				yes.play (&SettingsYesId);
+
+				AetLayerArgs no ("AET_PS4_RESULT_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::IN_LOOP);
+				no.play (&SettingsNoId);
+
+				SettingState = 1;
+			}
+		}; break;
+		case 1: {
+			void *inputState = diva::GetInputState (0);
+
+			if (IsButtonTapped (inputState, Button::ACCEPT)) {
+				PlaySoundEffect ("se_ft_sys_enter_01", 1.0);
+
+				if (*UploadSetting) {
+					AetLayerArgs yes ("AET_PS4_RESULT_MAIN", "upload_yes_sel", 0x14, AetAction::SPECIAL_ONCE);
+					yes.play (&SettingsYesId);
+					StageResultInit (task);
+				} else {
+					AetLayerArgs no ("AET_PS4_RESULT_MAIN", "upload_no_sel", 0x14, AetAction::SPECIAL_ONCE);
+					no.play (&SettingsNoId);
+				}
+
+				SettingState = 2;
+			} else if (IsButtonTapped (inputState, Button::UP) || IsButtonTapped (inputState, Button::DOWN)) {
+				PlaySoundEffect ("se_ft_sys_select_01", 1.0);
+
+				*UploadSetting = !*UploadSetting;
+
+				AetLayerArgs yes ("AET_PS4_RESULT_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::LOOP);
+				yes.play (&SettingsYesId);
+
+				AetLayerArgs no ("AET_PS4_RESULT_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::LOOP);
+				no.play (&SettingsNoId);
+			}
+		}; break;
+		case 2: {
+			auto aet = aets->find (*UploadSetting ? SettingsYesId : SettingsNoId);
+			if (!aet.has_value () || aet.value ()->layer == nullptr || aet.value ()->currentFrame >= aet.value ()->layer->endTime - 1.0) {
+				AetLayerArgs yesno ("AET_PS4_RESULT_MAIN", "upload_yesno", 0x13, AetAction::OUT_ONCE);
+				yesno.play (&SettingsYesNoId);
+
+				AetLayerArgs yes ("AET_PS4_RESULT_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::OUT_ONCE);
+				yes.play (&SettingsYesId);
+
+				AetLayerArgs no ("AET_PS4_RESULT_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::OUT_ONCE);
+				no.play (&SettingsNoId);
+
+				SettingState = 3;
+			}
+		}; break;
+		case 3: {
+			auto aet = aets->find (SettingsYesNoId);
+			if (!aet.has_value () || aet.value ()->currentFrame >= aet.value ()->layer->endTime - 1.0) {
+				StopAet (&SettingsYesNoId);
+				StopAet (&SettingsYesId);
+				StopAet (&SettingsNoId);
+
+				*(bool *)(0x1412B50A4) = true;
+				*(i32 *)(task + 0xF4)  = 0;
+				return false;
+			}
+		}; break;
+		}
+
+		return true;
+	}
+
 	if (uploadManager != nullptr) {
 		uploadManager->Update ();
 
