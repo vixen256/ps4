@@ -431,7 +431,7 @@ PvSelDisplay (u64 This) {
 			const char *name = "SPR_PS4_MENU_ICON_EXTRA";
 			if (i + offset == 5) name = "SPR_PS4_MENU_ICON_EXTRA_SEL";
 			auto str = stringRange (name);
-			args.id  = *getSpriteId (nullptr, &str);
+			args.id  = *GetSpriteId (nullptr, &str);
 
 			DrawSpr (&args);
 		}
@@ -552,7 +552,7 @@ HOOK (bool, PvDbRead, 0x1404BB290, u64 task) {
 
 				sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02lld", id.u.i);
 				name = stringRange (sprBuf);
-				set  = *getSprSetId (nullptr, &name);
+				set  = *GetSprSetId (nullptr, &name);
 				if (set == (u32)-1) continue;
 
 				name = stringRange ();
@@ -584,15 +584,15 @@ HOOK (void, GetSurvivalSprite, 0x140211720, u64 a1, u32 *dummySprId, u32 *sprId,
 
 	sprintf (sprBuf, "SPR_SURVIVAL_COURSE%02d_SEL", id);
 	name   = stringRange (sprBuf);
-	*sprId = *getSpriteId (nullptr, &name);
+	*sprId = *GetSpriteId (nullptr, &name);
 	if (*sprId == (u32)-1) {
 		name   = stringRange ("SPR_PS4_MENU_SORT_SURVIVAL_MODDED");
-		*sprId = *getSpriteId (nullptr, &name);
+		*sprId = *GetSpriteId (nullptr, &name);
 	}
 
 	sprintf (sprBuf, "SPR_PS4_MENU_SORT_SURVIVAL_DUMMY_%02d", offset);
 	name        = stringRange (sprBuf);
-	*dummySprId = *getSpriteId (nullptr, &name);
+	*dummySprId = *GetSpriteId (nullptr, &name);
 
 	*index = realIndex;
 }
