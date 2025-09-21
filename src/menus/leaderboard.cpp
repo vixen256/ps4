@@ -1011,6 +1011,117 @@ HOOK (i32, GetSurvivalSprId, 0x1401C5C60, i32 index) {
 	return sprId;
 }
 
+u32 SettingState    = 0;
+bool *UploadSetting = (bool *)(0x1412B50A5);
+i32 SettingsYesNoId = 0;
+i32 SettingsYesId   = 0;
+i32 SettingsNoId    = 0;
+i32 UploadSettingId = 0;
+
+bool
+CsRankingLoop (u64 task) {
+	u32 state   = *(u32 *)(task + 0x70);
+	u8 subState = *(u8 *)(task + 0x2AC);
+	if (state == 2 && subState == 4) {
+		switch (SettingState) {
+		case 0: {
+			AetLayerArgs yesno ("AET_PS4_GALLERY_MAIN", "upload_yesno", 0x13, AetAction::IN_LOOP);
+			yesno.play (&SettingsYesNoId);
+
+			AetLayerArgs yes ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::IN_LOOP);
+			yes.play (&SettingsYesId);
+
+			AetLayerArgs no ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::IN_LOOP);
+			no.play (&SettingsNoId);
+
+			AetLayerArgs setting ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_setting_01" : "upload_setting_02", 0x14, AetAction::IN_LOOP);
+			setting.play (&UploadSettingId);
+
+			SettingState = 1;
+		}; break;
+		case 1: {
+			void *inputState = diva::GetInputState (0);
+
+			if (IsButtonTapped (inputState, Button::BACK)) {
+				PlaySoundEffect ("se_ft_sys_cansel_01", 1.0);
+
+				AetLayerArgs yesno ("AET_PS4_GALLERY_MAIN", "upload_yesno", 0x13, AetAction::OUT_ONCE);
+				yesno.play (&SettingsYesNoId);
+
+				AetLayerArgs yes ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::OUT_ONCE);
+				yes.play (&SettingsYesId);
+
+				AetLayerArgs no ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::OUT_ONCE);
+				no.play (&SettingsNoId);
+
+				AetLayerArgs setting ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_setting_01" : "upload_setting_02", 0x14, AetAction::OUT_ONCE);
+				setting.play (&UploadSettingId);
+
+				SettingState = 3;
+			} else if (IsButtonTapped (inputState, Button::ACCEPT)) {
+				PlaySoundEffect ("se_ft_sys_enter_01", 1.0);
+
+				if (*UploadSetting) {
+					AetLayerArgs yes ("AET_PS4_GALLERY_MAIN", "upload_yes_sel", 0x14, AetAction::SPECIAL_ONCE);
+					yes.play (&SettingsYesId);
+				} else {
+					AetLayerArgs no ("AET_PS4_GALLERY_MAIN", "upload_no_sel", 0x14, AetAction::SPECIAL_ONCE);
+					no.play (&SettingsNoId);
+				}
+
+				SettingState = 2;
+			} else if (IsButtonTapped (inputState, Button::UP) || IsButtonTapped (inputState, Button::DOWN)) {
+				PlaySoundEffect ("se_ft_sys_select_01", 1.0);
+
+				*UploadSetting = !*UploadSetting;
+
+				AetLayerArgs yes ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::LOOP);
+				yes.play (&SettingsYesId);
+
+				AetLayerArgs no ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::LOOP);
+				no.play (&SettingsNoId);
+
+				AetLayerArgs setting ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_setting_01" : "upload_setting_02", 0x14, AetAction::LOOP);
+				setting.play (&UploadSettingId);
+			}
+		}; break;
+		case 2: {
+			auto aet = aets->find (*UploadSetting ? SettingsYesId : SettingsNoId);
+			if (!aet.has_value () || aet.value ()->layer == nullptr || aet.value ()->currentFrame >= aet.value ()->layer->endTime - 1.0) {
+				AetLayerArgs yesno ("AET_PS4_GALLERY_MAIN", "upload_yesno", 0x13, AetAction::OUT_ONCE);
+				yesno.play (&SettingsYesNoId);
+
+				AetLayerArgs yes ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_yes_sel" : "upload_yes", 0x14, AetAction::OUT_ONCE);
+				yes.play (&SettingsYesId);
+
+				AetLayerArgs no ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_no" : "upload_no_sel", 0x14, AetAction::OUT_ONCE);
+				no.play (&SettingsNoId);
+
+				AetLayerArgs setting ("AET_PS4_GALLERY_MAIN", *UploadSetting ? "upload_setting_01" : "upload_setting_02", 0x14, AetAction::OUT_ONCE);
+				setting.play (&UploadSettingId);
+
+				SettingState = 3;
+			}
+		}; break;
+		case 3: {
+			auto aet = aets->find (SettingsYesNoId);
+			if (!aet.has_value () || aet.value ()->currentFrame >= aet.value ()->layer->endTime - 1.0) {
+				StopAet (&SettingsYesNoId);
+				StopAet (&SettingsYesId);
+				StopAet (&SettingsNoId);
+				StopAet (&UploadSettingId);
+
+				SettingState = 0;
+				return false;
+			}
+		}; break;
+		}
+		return true;
+	}
+
+	return false;
+}
+
 void
 init () {
 	taskAddition hiscore;
@@ -1033,6 +1144,10 @@ init () {
 	survival.display = SurvivalDisplay;
 	survival.destroy = SurvivalDestroy;
 	addTaskAddition ("CS_RANKING_SURVIVAL", survival);
+
+	taskAddition ranking;
+	ranking.loop = CsRankingLoop;
+	addTaskAddition ("CS_RANKING", ranking);
 
 	INSTALL_HOOK (GetSurvivalSprId);
 }

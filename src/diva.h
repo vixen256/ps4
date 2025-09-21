@@ -445,7 +445,7 @@ enum class AetAction : i32 {
 	IN_LOOP      = 2, // Start at st_in, play to ed_lp then jump to st_lp and keep looping
 	LOOP         = 3, // Start at st_lp, end at ed_lp, loops
 	OUT_ONCE     = 4, // Start at st_out, end at ed_out
-	SPECIAL_ONCE = 5, // Start at st_sp, end to ed_lp
+	SPECIAL_ONCE = 5, // Start at st_sp, end to ed_sp
 	SPECIAL_LOOP = 6, // Start at st_sp, play to ed_sp, then jump to st_lp and loop through ed_lp
 	UNK          = 7, // Start at st_in, end at ed_in, probably loops?
 };
@@ -587,6 +587,11 @@ union AetItem {
 	AetComp *comp;
 };
 
+struct AetMarker {
+	f32 time;
+	const char *name;
+};
+
 struct AetLayer {
 	char *name;
 	f32 startTime;
@@ -598,7 +603,7 @@ struct AetLayer {
 	AetItemType itemType;
 	AetItem item;
 	u32 markerCount;
-	void *markers;
+	AetMarker *markers;
 	AetLayerVideo *video;
 	u64 unk_0x40;
 	u64 unk_0x48;
