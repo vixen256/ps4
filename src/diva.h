@@ -1181,6 +1181,9 @@ FUNCTION_PTR_H (void, UnloadSprSet, i32 id);
 FUNCTION_PTR_H (bool, ResolveFilePath, string *from, string *out);
 FUNCTION_PTR_H (u32 *, GetSpriteId, void *a1, stringRange *name);
 FUNCTION_PTR_H (u32 *, GetSprSetId, void *a1, stringRange *name);
+FUNCTION_PTR_H (bool, CheckTaskReady, Task *task);
+FUNCTION_PTR_H (bool, AddTask, Task *task, const char *name);
+FUNCTION_PTR_H (bool, DelTask, Task *task);
 
 void appendThemeInPlace (char *name);
 void appendThemeInPlaceDx (char *name);

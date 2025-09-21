@@ -59,6 +59,9 @@ FUNCTION_PTR (void, UnloadSprSet, 0x1405B48B0, i32 id);
 FUNCTION_PTR (bool, ResolveFilePath, 0x1402A5330, string *from, string *out);
 FUNCTION_PTR (u32 *, GetSpriteId, 0x1405BC8F0, void *a1, stringRange *name);
 FUNCTION_PTR (u32 *, GetSprSetId, 0x1405BC770, void *a1, stringRange *name);
+FUNCTION_PTR (bool, CheckTaskReady, 0x1402C9960, Task *task);
+FUNCTION_PTR (bool, AddTask, 0x1402C96A0, Task *task, const char *name);
+FUNCTION_PTR (bool, DelTask, 0x1529F3780, Task *task);
 
 vector<PvDbEntry *> *pvs             = (vector<PvDbEntry *> *)0x141753818;
 map<i32, PvSpriteId> *pvSprites      = (map<i32, PvSpriteId> *)0x14CBBACC0;
