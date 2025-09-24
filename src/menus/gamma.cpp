@@ -1,93 +1,44 @@
+#include "diva.h"
 #include "gamma_ps.fxh"
-#include "gamma_vs.fxh"
+
+using namespace diva;
 
 namespace gamma {
-ID3D11Device *device;
-ID3D11DeviceContext *context;
-ID3D11VertexShader *vertex_shader          = nullptr;
-ID3D11PixelShader *pixel_shader            = nullptr;
-ID3D11SamplerState *sampler                = nullptr;
-ID3D11RenderTargetView *render_target_view = nullptr;
-ID3D11Texture2D *back_buffer_copy          = nullptr;
-ID3D11ShaderResourceView *back_buffer_view = nullptr;
+bool inited = false;
+p_dx_pixel_shader pixel_shader;
 
-void
-D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext) {
-	device  = Device;
-	context = DeviceContext;
+HOOK (void, PassAdjustScreen, 0x1404a0f50, void *rndr, void *rend_data_ctx) {
+	if (!inited) {
+		p_dx_pixel_shader_create (&pixel_shader, ps_bytecode, sizeof (ps_bytecode));
+		inited = true;
+	}
 
-	device->CreateVertexShader (vs_bytecode, sizeof (vs_bytecode), nullptr, &vertex_shader);
-	device->CreatePixelShader (ps_bytecode, sizeof (ps_bytecode), nullptr, &pixel_shader);
+	auto tex = dx_swapchain_ptr_get_render_target_textures ();
 
-	D3D11_SAMPLER_DESC sampler_desc = {};
-	sampler_desc.Filter             = D3D11_FILTER_MIN_POINT_MAG_MIP_LINEAR;
-	sampler_desc.AddressU           = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampler_desc.AddressV           = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampler_desc.AddressW           = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampler_desc.MipLODBias         = 0.0;
-	sampler_desc.MaxAnisotropy      = 1;
-	sampler_desc.ComparisonFunc     = D3D11_COMPARISON_NEVER;
-	sampler_desc.MinLOD             = 0.0;
-	sampler_desc.MaxLOD             = 1.0;
+	Vec4 clear_color (0.0, 0.0, 0.0, 0.0);
+	set_render_target (rend_data_ctx, (p_dx_render_target *)(*(u64 *)0x141148218 + 0x08));
+	clear_render_target_view (rend_data_ctx, &clear_color);
 
-	device->CreateSamplerState (&sampler_desc, &sampler);
+	i32 x_offset = 0;
+	i32 y_offset = 0;
+	i32 width    = tex->texture->width;
+	i32 height   = tex->texture->height;
+	get_render_params (nullptr, &width, &height, &x_offset, &y_offset);
+	set_viewport (rend_data_ctx, x_offset, y_offset, width, height);
 
-	ID3D11Texture2D *back_buffer;
-	SwapChain->GetBuffer (0, __uuidof (ID3D11Texture2D), (void **)&back_buffer);
-	device->CreateRenderTargetView (back_buffer, nullptr, &render_target_view);
+	set_ps_textures (rend_data_ctx, 0, 1, tex);
+	set_ps_sampler_state (rend_data_ctx, 0, 1, (void *)(*(u64 *)((u64)rndr + 0x1940) + 0x10));
+	set_vs_shader (rend_data_ctx, (p_dx_vertex_shader *)(*(u64 *)((u64)rndr + 0x1940) + 0x130));
+	set_ps_shader (rend_data_ctx, &pixel_shader);
 
-	D3D11_TEXTURE2D_DESC desc;
-	back_buffer->GetDesc (&desc);
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	device->CreateTexture2D (&desc, nullptr, &back_buffer_copy);
-	device->CreateShaderResourceView (back_buffer_copy, nullptr, &back_buffer_view);
+	Vec4 color (1.0, 1.0, 1.0, 1.0);
+	rndr_draw_quad (*(void **)((u64)rndr + 0x1940), rend_data_ctx, 0.0, width, height, 1.0, 1.0, 0.0, 0.0, 1.0, &color);
 
-	back_buffer->Release ();
+	return;
 }
 
 void
-OnResize (IDXGISwapChain *SwapChain) {
-	render_target_view->Release ();
-	back_buffer_copy->Release ();
-	back_buffer_view->Release ();
-
-	ID3D11Texture2D *back_buffer;
-	SwapChain->GetBuffer (0, __uuidof (ID3D11Texture2D), (void **)&back_buffer);
-	device->CreateRenderTargetView (back_buffer, nullptr, &render_target_view);
-
-	D3D11_TEXTURE2D_DESC desc;
-	back_buffer->GetDesc (&desc);
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	device->CreateTexture2D (&desc, nullptr, &back_buffer_copy);
-	device->CreateShaderResourceView (back_buffer_copy, nullptr, &back_buffer_view);
-
-	back_buffer->Release ();
-}
-
-void
-OnFrame (IDXGISwapChain *SwapChain) {
-	HRESULT hr;
-
-	ID3D11Texture2D *back_buffer;
-	hr = SwapChain->GetBuffer (0, __uuidof (ID3D11Texture2D), (void **)&back_buffer);
-	if (FAILED (hr)) return;
-
-	D3D11_VIEWPORT viewport = {};
-	D3D11_TEXTURE2D_DESC desc;
-	back_buffer->GetDesc (&desc);
-	viewport.Width  = desc.Width;
-	viewport.Height = desc.Height;
-
-	context->CopyResource (back_buffer_copy, back_buffer);
-
-	context->VSSetShader (vertex_shader, nullptr, 0);
-	context->PSSetShader (pixel_shader, nullptr, 0);
-	context->PSSetShaderResources (0, 1, &back_buffer_view);
-	context->PSSetSamplers (0, 1, &sampler);
-	context->OMSetRenderTargets (1, &render_target_view, nullptr);
-	context->RSSetViewports (1, &viewport);
-	context->Draw (6, 0);
-
-	back_buffer->Release ();
+init () {
+	INSTALL_HOOK (PassAdjustScreen);
 }
 } // namespace gamma

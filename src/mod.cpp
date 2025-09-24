@@ -281,6 +281,8 @@ init () {
 	commonUi::init ();
 	commonMenu::init ();
 	leaderboard::init ();
+
+	if (use_ps4_gamma) gamma::init ();
 }
 
 SIG_SCAN_STRING (sigPvDbSwitch, "pv_db_switch.txt");
@@ -319,16 +321,5 @@ preInit () {
 __declspec (dllexport) void
 D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext) {
 	pvGame::D3DInit (SwapChain, Device, DeviceContext);
-	if (use_ps4_gamma) gamma::D3DInit (SwapChain, Device, DeviceContext);
-}
-
-__declspec (dllexport) void
-OnResize (IDXGISwapChain *SwapChain) {
-	if (use_ps4_gamma) gamma::OnResize (SwapChain);
-}
-
-__declspec (dllexport) void
-OnFrame (IDXGISwapChain *SwapChain) {
-	if (use_ps4_gamma) gamma::OnFrame (SwapChain);
 }
 }

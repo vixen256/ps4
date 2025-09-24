@@ -45,7 +45,5 @@ namespace leaderboard {
 void init ();
 } // namespace leaderboard
 namespace gamma {
-void D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext);
-void OnResize (IDXGISwapChain *SwapChain);
-void OnFrame (IDXGISwapChain *SwapChain);
+void init ();
 } // namespace gamma

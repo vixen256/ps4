@@ -1021,9 +1021,24 @@ enum DirectXTextureFormat : i32 {
 	DX_TEXTURE_FORMAT_MAX                = 0x14,
 };
 
-struct DirectXTexture {
+struct dx_render_target;
+struct p_dx_render_target {
+	dx_render_target *render_target;
+};
+
+struct dx_vertex_shader;
+struct p_dx_vertex_shader {
+	dx_vertex_shader *shader;
+};
+
+struct dx_pixel_shader;
+struct p_dx_pixel_shader {
+	dx_pixel_shader *shader;
+};
+
+struct dx_texture {
 	i32 ref_count;
-	DirectXTexture *free_next;
+	dx_texture *free_next;
 	ID3D11Texture2D *texture;
 	ID3D11ShaderResourceView *resource_view;
 	DirectXTextureFormat format;
@@ -1032,6 +1047,10 @@ struct DirectXTexture {
 	i32 width;
 	i32 height;
 	i32 mip_levels;
+};
+
+struct p_dx_texture {
+	dx_texture *texture;
 };
 
 struct Texture {
@@ -1045,7 +1064,7 @@ struct Texture {
 	i32 max_mipmap;
 	i32 size;
 	i32 unk_0x20;
-	DirectXTexture *dx_texture;
+	p_dx_texture dx_texture;
 };
 
 struct SprArgs {
@@ -1082,7 +1101,7 @@ struct SprArgs {
 	Vec2 texture_pos;
 	Vec2 texture_size;
 	SprArgs *next;
-	DirectXTexture *dx_texture;
+	p_dx_texture dx_texture;
 
 	SprArgs ();
 };
@@ -1189,6 +1208,19 @@ FUNCTION_PTR_H (u32 *, GetSprSetId, void *a1, stringRange *name);
 FUNCTION_PTR_H (bool, CheckTaskReady, Task *task);
 FUNCTION_PTR_H (bool, AddTask, Task *task, const char *name);
 FUNCTION_PTR_H (bool, DelTask, Task *task);
+FUNCTION_PTR_H (void, p_dx_texture_create, p_dx_texture *texture, u32 width, u32 height, DirectXTextureFormat format, i32 type, u32 mip_levels, bool cube_map, bool generate_mips);
+FUNCTION_PTR_H (void, p_dx_render_target_create, p_dx_render_target *render_target, pair<p_dx_texture, i32> *color_texs, i32 color_tex_count, pair<p_dx_texture, i32> *depth_tex);
+FUNCTION_PTR_H (void, p_dx_pixel_shader_create, p_dx_pixel_shader *shader, const void *data, i32 size);
+FUNCTION_PTR_H (void, set_render_target, void *rend_data_ctx_state, p_dx_render_target *render_target);
+FUNCTION_PTR_H (void, clear_render_target_view, void *rend_data_ctx_state, Vec4 *color);
+FUNCTION_PTR_H (p_dx_texture *, dx_swapchain_ptr_get_render_target_textures);
+FUNCTION_PTR_H (void, rndr_draw_quad, void *rndr_data, void *rend_data_ctx, f32 lod, i32 width, i32 height, f32 s0, f32 t0, f32 s1, f32 t1, f32 scale, Vec4 *color);
+FUNCTION_PTR_H (void, set_viewport, void *rnd_data_ctx_state, i32 x, i32 y, i32 width, i32 height);
+FUNCTION_PTR_H (void, set_ps_textures, void *rnd_data_ctx_state, i32 start_slot, i32 num, p_dx_texture *textures);
+FUNCTION_PTR_H (void, set_ps_sampler_state, void *rnd_data_ctx_state, i32 start_slot, i32 num, void *samplers);
+FUNCTION_PTR_H (void, set_vs_shader, void *rnd_data_ctx_state, p_dx_vertex_shader *shader);
+FUNCTION_PTR_H (void, set_ps_shader, void *rnd_data_ctx_state, p_dx_pixel_shader *shader);
+FUNCTION_PTR_H (void, get_render_params, void *a1, i32 *width, i32 *height, i32 *x_offset, i32 *y_offset);
 
 void appendThemeInPlace (char *name);
 void appendThemeInPlaceDx (char *name);

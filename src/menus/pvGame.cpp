@@ -213,7 +213,7 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 	context->Unmap (d3dTexture, 0);
 	free (data);
 
-	context->CopyResource (gameTexture->dx_texture->texture, d3dTexture);
+	context->CopyResource (gameTexture->dx_texture.texture->texture, d3dTexture);
 
 	*(u32 *)(a1 + 0x7C) = 0xBADC0FEE;
 }
