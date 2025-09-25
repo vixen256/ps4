@@ -1,4 +1,3 @@
-#include "pvGame.fxh"
 #include "diva.h"
 #include <png.h>
 
@@ -11,16 +10,17 @@ char modDir[MAX_PATH];
 ID3D11Device *device;
 ID3D11DeviceContext *context;
 
-bool pvGameActive                                 = false;
-bool takenScreenshot                              = false;
-ID3D11ComputeShader *shader                       = nullptr;
-ID3D11Texture2D *screenshotTexture                = nullptr;
-ID3D11Texture2D *screenshotStagingTexture         = nullptr;
-ID3D11SamplerState *screenshotSampler             = nullptr;
-ID3D11UnorderedAccessView *shaderReadWriteTexture = nullptr;
+bool pvGameActive       = false;
+bool takenScreenshot    = false;
+bool startedWriteThread = false;
+
+bool initedTexture = false;
+p_dx_texture screenshotTexture;
+p_dx_render_target screenshotTextureRtv;
+
+ID3D11Texture2D *screenshotStagingTexture;
 
 bool screenshotLoadingScreen = true;
-ID3D11Texture2D *d3dTexture  = nullptr;
 Texture *gameTexture         = nullptr;
 
 FUNCTION_PTR (bool, isPractice, 0x1401E7B90);
@@ -62,22 +62,10 @@ PVGameDestroy (u64 a1) {
 	return false;
 }
 
-HOOK (void, DrawSprite, 0x1405B6400, void *a1, void *sprite_manager, SprArgs *args, void *matrix, i32 x_min, i32 y_min, i32 x_max, i32 y_max, void *a9, i32 ****render_ctx) {
-	if (pvGameActive && *(u64 *)(*(u64 *)0x141149808 + 0x48) != 0 && *(i32 *)(*(u64 *)(*(u64 *)0x141149808 + 0x48) + 0x08) >= 3 && args->layer > 3 && !takenScreenshot) {
-		takenScreenshot   = true;
-		auto instructions = **render_ctx;
-		if (instructions[2] + 1 > instructions[1]) return;
-		*instructions[2] = 0x90;
-		instructions[2] += 1;
-	}
-
-	return originalDrawSprite (a1, sprite_manager, args, matrix, x_min, y_min, x_max, y_max, a9, render_ctx);
-}
-
-extern "C" {
 void
 write_png () {
 	D3D11_MAPPED_SUBRESOURCE map;
+	context->CopyResource (screenshotStagingTexture, screenshotTexture.texture->texture);
 	HRESULT hr = context->Map (screenshotStagingTexture, 0, D3D11_MAP_READ, 0, &map);
 	if (FAILED (hr)) {
 		printf ("[ps4] Map %lx\n", hr);
@@ -105,65 +93,38 @@ write_png () {
 
 	png_image_write_to_file (&png, path, 0, map.pData, map.RowPitch, nullptr);
 
-	takenScreenshot = false;
-
 	context->Unmap (screenshotStagingTexture, 0);
+
+	takenScreenshot = false;
 }
 
-HOOK (void, ProcessRenderCommand, 0x1402B8526);
-void
-realProcessRenderCommand () {
-	HRESULT hr;
-	ID3D11RenderTargetView *render_target;
-	ID3D11DepthStencilView *stencil_view;
-	context->OMGetRenderTargets (1, &render_target, &stencil_view);
+HOOK (void, PassSprite, 0x1404DAA00, void *rend_data_ctx, u64 rndr_ptr) {
+	if (*(u64 *)(*(u64 *)0x141149808 + 0x48) != 0 && *(i32 *)(*(u64 *)(*(u64 *)0x141149808 + 0x48) + 0x08) >= 3 && !takenScreenshot) {
+		auto rndr = *(void **)(rndr_ptr + 0x30);
+		auto tex  = dx_swapchain_ptr_get_render_target_textures ();
 
-	D3D11_RENDER_TARGET_VIEW_DESC render_target_desc;
-	render_target->GetDesc (&render_target_desc);
-	if (render_target_desc.ViewDimension != D3D11_RTV_DIMENSION_TEXTURE2D) return;
+		if (!initedTexture) {
+			p_dx_texture_create (&screenshotTexture, 1920, 1080, DX_TEXTURE_FORMAT_R8G8B8A8_UNORM, 0, 1, false, false);
+			pair screenshotTexturePair (screenshotTexture, 0);
+			pair depthPair (p_dx_texture (nullptr), 0);
+			p_dx_render_target_create (&screenshotTextureRtv, &screenshotTexturePair, 1, &depthPair);
+		}
 
-	ID3D11Resource *render_resource;
-	ID3D11Texture2D *render_texture;
-	render_target->GetResource (&render_resource);
-	hr = render_resource->QueryInterface (&render_texture);
-	if (FAILED (hr)) {
-		printf ("[ps4] QueryInterface %lx\n", hr);
-		return;
+		Vec4 clear_color (0.0, 0.0, 0.0, 0.0);
+		set_render_target (rend_data_ctx, &screenshotTextureRtv);
+		clear_render_target_view (rend_data_ctx, &clear_color);
+
+		rndr_draw_quad_copy (*(void **)((u64)rndr + 0x1940), rend_data_ctx, 0, 0, 1920, 1080, tex, 1.0, 1.0, 0.0, true);
+
+		set_render_target (rend_data_ctx, (p_dx_render_target *)(*(u64 *)0x141148218 + 0x30));
+		takenScreenshot    = true;
+		startedWriteThread = false;
 	}
 
-	ID3D11ShaderResourceView *shaderReadTexture = nullptr;
-	hr                                          = device->CreateShaderResourceView (render_texture, nullptr, &shaderReadTexture);
-	if (FAILED (hr)) {
-		printf ("[ps4] CreateShaderResourceView %lx\n", hr);
-		return;
-	}
-
-	context->OMSetRenderTargets (0, nullptr, nullptr);
-
-	context->CSSetShader (shader, nullptr, 0);
-	context->CSSetShaderResources (0, 1, &shaderReadTexture);
-	context->CSSetUnorderedAccessViews (0, 1, &shaderReadWriteTexture, nullptr);
-	context->CSSetSamplers (0, 1, &screenshotSampler);
-
-	context->Dispatch (1920 / 8, 1080 / 8, 1);
-
-	context->CopyResource (screenshotStagingTexture, screenshotTexture);
-
-	std::thread t (write_png);
-	t.detach ();
-
-	render_texture->Release ();
-
-	context->OMSetRenderTargets (1, &render_target, stencil_view);
-
-	stencil_view->Release ();
-	render_target->Release ();
-}
+	return originalPassSprite (rend_data_ctx, rndr_ptr);
 }
 
 HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
-	if (gameTexture == nullptr) gameTexture = TextureLoadTex2D (0xBADC0FEE, 6, 1920, 1080, 0, nullptr, 0, false);
-
 	std::vector<std::string> files;
 	char path[MAX_PATH];
 	WIN32_FIND_DATAA file;
@@ -200,20 +161,9 @@ HOOK (void, PlayLoadingBg, 0x140654280, u64 a1) {
 		return originalPlayLoadingBg (a1);
 	}
 
-	D3D11_MAPPED_SUBRESOURCE map;
-	HRESULT hr = context->Map (d3dTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	if (FAILED (hr)) {
-		printf ("[ps4] Map Failed %lx\n", hr);
-		return originalPlayLoadingBg (a1);
-	}
-
-	for (int i = 0; i < 1080; i++)
-		memcpy ((void *)((u64)map.pData + i * map.RowPitch), (void *)((u64)data + i * 1920 * 4), 1920 * 4);
-
-	context->Unmap (d3dTexture, 0);
+	if (gameTexture != nullptr) TextureRelease (gameTexture);
+	gameTexture = TextureLoadTex2D (0xBADC0FEE, 6, 1920, 1080, 0, &data, 1920 * 1080 * 4, false);
 	free (data);
-
-	context->CopyResource (gameTexture->dx_texture.texture->texture, d3dTexture);
 
 	*(u32 *)(a1 + 0x7C) = 0xBADC0FEE;
 }
@@ -251,6 +201,7 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	HRESULT hr;
 
 	D3D11_TEXTURE2D_DESC desc;
+
 	desc.Width              = 1920;
 	desc.Height             = 1080;
 	desc.MipLevels          = 1;
@@ -258,69 +209,30 @@ D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *D
 	desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
 	desc.SampleDesc.Count   = 1;
 	desc.SampleDesc.Quality = 0;
-	desc.Usage              = D3D11_USAGE_DEFAULT;
-	desc.BindFlags          = D3D11_BIND_UNORDERED_ACCESS;
-	desc.CPUAccessFlags     = 0;
+	desc.Usage              = D3D11_USAGE_STAGING;
+	desc.BindFlags          = 0;
+	desc.CPUAccessFlags     = D3D11_CPU_ACCESS_READ;
 	desc.MiscFlags          = 0;
-	hr                      = device->CreateTexture2D (&desc, nullptr, &screenshotTexture);
+
+	hr = device->CreateTexture2D (&desc, nullptr, &screenshotStagingTexture);
 	if (FAILED (hr)) {
 		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
 		return;
 	}
 
-	desc.Usage          = D3D11_USAGE_STAGING;
-	desc.BindFlags      = 0;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	hr                  = device->CreateTexture2D (&desc, nullptr, &screenshotStagingTexture);
-	if (FAILED (hr)) {
-		printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
-		return;
-	}
-
-	if (screenshotLoadingScreen) {
-		desc.Usage          = D3D11_USAGE_DYNAMIC;
-		desc.BindFlags      = D3D11_BIND_SHADER_RESOURCE;
-		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		hr                  = device->CreateTexture2D (&desc, nullptr, &d3dTexture);
-		if (FAILED (hr)) {
-			printf ("[ps4] CreateTexture2D Failed %lx\n", hr);
-			return;
-		}
-	}
-
-	hr = device->CreateUnorderedAccessView (screenshotTexture, nullptr, &shaderReadWriteTexture);
-	if (FAILED (hr)) {
-		printf ("[ps4] CreateUnorderedAccessView %lx\n", hr);
-		return;
-	}
-
-	D3D11_SAMPLER_DESC sampler_desc;
-	sampler_desc.Filter         = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
-	sampler_desc.AddressU       = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampler_desc.AddressV       = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampler_desc.AddressW       = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampler_desc.MipLODBias     = 0.0;
-	sampler_desc.MaxAnisotropy  = 1;
-	sampler_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-	sampler_desc.BorderColor[0] = 0.0;
-	sampler_desc.BorderColor[1] = 0.0;
-	sampler_desc.BorderColor[2] = 0.0;
-	sampler_desc.BorderColor[3] = 0.0;
-	sampler_desc.MinLOD         = 0.0;
-	sampler_desc.MaxLOD         = 0.0;
-	hr                          = device->CreateSamplerState (&sampler_desc, &screenshotSampler);
-	if (FAILED (hr)) {
-		printf ("[ps4] CreateSamplerState %lx\n", hr);
-		return;
-	}
-
-	device->CreateComputeShader (shader_bytecode, sizeof (shader_bytecode), nullptr, &shader);
-
-	INSTALL_HOOK (DrawSprite);
-	INSTALL_HOOK (ProcessRenderCommand);
+	INSTALL_HOOK (PassSprite);
 	if (screenshotLoadingScreen) {
 		INSTALL_HOOK (PlayLoadingBg);
 		INSTALL_HOOK (DisplayLoadingBg);
+	}
+}
+
+void
+OnFrame (IDXGISwapChain *swapChain) {
+	if (takenScreenshot && !startedWriteThread) {
+		std::thread t (write_png);
+		t.detach ();
+		startedWriteThread = true;
 	}
 }
 } // namespace pvGame

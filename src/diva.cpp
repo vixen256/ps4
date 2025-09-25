@@ -42,6 +42,7 @@ FUNCTION_PTR (void, DrawTextFmt, 0x1402C56A0, DrawParams *params, u32 flags, con
 FUNCTION_PTR (void, DefaultSprArgs, 0x1405B78D0, SprArgs *args);
 FUNCTION_PTR (SprArgs *, DrawSpr, 0x1405B49C0, SprArgs *args);
 FUNCTION_PTR (Texture *, TextureLoadTex2D, 0x1405F0720, u32 id, i32 format, u32 width, u32 height, i32 mip_levels, void **data, i32, bool generate_mips);
+FUNCTION_PTR (void, TextureRelease, 0x1405F0950, Texture *);
 FUNCTION_PTR (void, GetPlayerRank, 0x15DE68420, i32 *exp, i32 *rank);
 FUNCTION_PTR (void *, GetSaveData, 0x1401D6510);
 FUNCTION_PTR (void *, FindScore, 0x14E5A32F0, void *saveData, i32 pvId);
@@ -69,6 +70,7 @@ FUNCTION_PTR (void, set_render_target, 0x1402BFC60, void *rend_data_ctx_state, p
 FUNCTION_PTR (void, clear_render_target_view, 0x1402BFCC0, void *rend_data_ctx_state, Vec4 *color);
 FUNCTION_PTR (p_dx_texture *, dx_swapchain_ptr_get_render_target_textures, 0x1402C28D0);
 FUNCTION_PTR (void, rndr_draw_quad, 0x14049DB50, void *rndr_data, void *rend_data_ctx, f32 lod, i32 width, i32 height, f32 s0, f32 t0, f32 s1, f32 t1, f32 scale, Vec4 *color);
+FUNCTION_PTR (void, rndr_draw_quad_copy, 0x14049E750, void *rndr_data, void *rend_data_ctx, i32 x, i32 y, i32 width, i32 height, p_dx_texture *in_tex, f32 s0, f32 t0, f32 lod, bool linear);
 FUNCTION_PTR (void, set_viewport, 0x1402BFCA0, void *rnd_data_ctx_state, i32 x, i32 y, i32 width, i32 height);
 FUNCTION_PTR (void, set_ps_textures, 0x1402C0050, void *rnd_data_ctx_state, i32 start_slot, i32 num, p_dx_texture *textures);
 FUNCTION_PTR (void, set_ps_sampler_state, 0x1402C00B0, void *rnd_data_ctx_state, i32 start_slot, i32 num, void *samplers);

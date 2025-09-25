@@ -65,7 +65,6 @@ library(
 		'src/menus/decoration.cpp',
 		'src/menus/pvWatch.cpp',
 		'src/menus/pvGame.cpp',
-		'src/menus/pvGame.asm',
 		'src/menus/genericDialog.cpp',
 		'src/menus/genericDialog.asm',
 		'src/menus/commonUi.cpp',

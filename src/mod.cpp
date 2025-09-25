@@ -322,4 +322,9 @@ __declspec (dllexport) void
 D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext) {
 	pvGame::D3DInit (SwapChain, Device, DeviceContext);
 }
+
+__declspec (dllexport) void
+OnFrame (IDXGISwapChain *SwapChain) {
+	pvGame::OnFrame (SwapChain);
+}
 }

@@ -31,6 +31,7 @@ void init ();
 namespace pvGame {
 void init (bool);
 void D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext);
+void OnFrame (IDXGISwapChain *SwapChain);
 } // namespace pvGame
 namespace genericDialog {
 void init ();
