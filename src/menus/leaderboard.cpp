@@ -22,8 +22,9 @@ struct LeaderboardPv {
 	i32 unk_40;
 };
 
-LeaderboardDownloadManager *leaderboardManager         = nullptr;
-LeaderboardDownloadManager *personalLeaderboardManager = nullptr;
+LeaderboardDownloadManager *leaderboardManager = nullptr;
+std::optional<Score> personalScore             = {};
+std::optional<Achievement> personalAchievement = {};
 
 i32 base_id;
 i32 cursor_id;
@@ -128,8 +129,7 @@ RankingLoaded (const char *prefix, std::vector<T> loaded) {
 		down.play (&arrow_down_id);
 	}
 
-	if ((!personalLeaderboardManager->GetScores ().has_value () || personalLeaderboardManager->GetScores ().value ().size () == 0) &&
-	    (!personalLeaderboardManager->GetAchievements ().has_value () || personalLeaderboardManager->GetAchievements ().value ().size () == 0)) {
+	if (!personalScore.has_value() || !personalAchievement.has_value()) {
 		sprintf (layer_buf, "%s_my_none", prefix);
 		AetLayerArgs me_none ("AET_PS4_GALLERY_MAIN", layer_buf, 0x17, AetAction::LOOP);
 		me_none.play (&my_none_id);
@@ -436,9 +436,6 @@ HiScoreLoop (u64 task) {
 		leaderboardManager    = new LeaderboardDownloadManager ();
 		leaderboardManager->DownloadScores (id, difficulty, filter, false);
 
-		personalLeaderboardManager = new LeaderboardDownloadManager ();
-		personalLeaderboardManager->DownloadScores (id, difficulty, 1, true);
-
 		RankingLoadBase ("hiscore");
 
 		lastDiff   = difficulty;
@@ -454,6 +451,16 @@ HiScoreLoop (u64 task) {
 		} else if (scores.has_value ()) {
 			*(i32 *)(task + 0x6C) = 3;
 			RankingLoaded ("hiscore", scores.value ());
+
+			SteamNetworkingIdentity id;
+			SteamNetworkingSockets ()->GetIdentity (&id);
+			auto selfId = id.GetSteamID ().ConvertToUint64 ();
+			for (auto &score: scores.value ()) {
+				if (score.playerId == selfId) {
+					personalScore = score;
+					break;
+				}
+			}
 		}
 	}
 
@@ -462,7 +469,6 @@ HiScoreLoop (u64 task) {
 		if (difficulty != lastDiff || filter != lastFilter) {
 			*(i32 *)(task + 0x6C) = 2;
 			leaderboardManager->DownloadScores (id, difficulty, filter, false);
-			if (difficulty != lastDiff) personalLeaderboardManager->DownloadScores (id, difficulty, 1, true);
 
 			RankingReload ("hiscore");
 		}
@@ -478,8 +484,7 @@ HiScoreLoop (u64 task) {
 		delete leaderboardManager;
 		leaderboardManager = nullptr;
 
-		delete leaderboardManager;
-		personalLeaderboardManager = nullptr;
+		personalScore = {};
 
 		RankingReload ("hiscore");
 		StopAet (&load_id);
@@ -546,7 +551,7 @@ HiScoreDisplay (u64 task) {
 		RankingDisplay ("hiscore", score, i);
 	}
 
-	if (personalLeaderboardManager != nullptr && personalLeaderboardManager->GetScores ().has_value () && personalLeaderboardManager->GetScores ().value ().size () == 1) {
+	if (personalScore.has_value()) {
 		StopAet (&my_none_id);
 
 		GetComposition (&comp, my_id);
@@ -556,7 +561,7 @@ HiScoreDisplay (u64 task) {
 			params.lineOrigin  = position;
 			params.textCurrent = position;
 			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%06d", personalLeaderboardManager->GetScores ().value ().front ().score);
+			DrawTextFmt (&params, 0x28, "%06d", personalScore->score);
 		}
 
 		if (auto layout = comp.find (string ("p_hiscore_my_grade01_c"))) {
@@ -564,7 +569,7 @@ HiScoreDisplay (u64 task) {
 			params.lineOrigin  = position;
 			params.textCurrent = position;
 			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+			DrawTextFmt (&params, 0x28, "%d", personalScore->rank);
 		}
 	} else {
 		GetComposition (&comp, my_id);
@@ -606,14 +611,11 @@ AchieveInit (u64 task) {
 
 	bool isCT                  = *(u8 *)(task + 0x104) == 2;
 	leaderboardManager         = new LeaderboardDownloadManager ();
-	personalLeaderboardManager = new LeaderboardDownloadManager ();
 
 	if (isCT) {
 		leaderboardManager->DownloadCTAchievements (0, 0, false);
-		personalLeaderboardManager->DownloadCTAchievements (0, 1, true);
 	} else {
 		leaderboardManager->DownloadFSAchievements (0, 0, false);
-		personalLeaderboardManager->DownloadFSAchievements (0, 1, true);
 	}
 
 	RankingInit ("achieve");
@@ -633,10 +635,8 @@ AchieveLoop (u64 task) {
 		waiting = true;
 		if (isCT) {
 			leaderboardManager->DownloadCTAchievements (difficulty, filter, false);
-			if (difficulty != lastDiff) personalLeaderboardManager->DownloadCTAchievements (difficulty, 1, true);
 		} else {
 			leaderboardManager->DownloadFSAchievements (difficulty, filter, false);
-			if (difficulty != lastDiff) personalLeaderboardManager->DownloadFSAchievements (difficulty, 1, true);
 		}
 
 		RankingReload ("achieve");
@@ -651,6 +651,16 @@ AchieveLoop (u64 task) {
 		} else if (achievements.has_value ()) {
 			waiting = false;
 			RankingLoaded ("achieve", achievements.value ());
+
+			SteamNetworkingIdentity id;
+			SteamNetworkingSockets ()->GetIdentity (&id);
+			auto selfId = id.GetSteamID ().ConvertToUint64 ();
+			for (auto &achievement: achievements.value ()) {
+				if (achievement.playerId == selfId) {
+					personalAchievement = achievement;
+					break;
+				}
+			}
 		}
 	}
 
@@ -743,11 +753,10 @@ AchieveDisplay (u64 task) {
 		}
 	}
 
-	auto personalAchivement = personalLeaderboardManager->GetAchievements ();
-	if (personalAchivement.has_value () && personalAchivement.value ().size () == 1) {
+	if (personalAchievement.has_value ()) {
 		StopAet (&my_none_id);
 
-		f32 clearPercentage = personalAchivement.value ().front ().combinedPercentage / songCounts[isCT][difficulty];
+		f32 clearPercentage = personalAchievement->combinedPercentage / songCounts[isCT][difficulty];
 		f32 left            = floor (clearPercentage);
 		f32 right           = clearPercentage - left;
 
@@ -773,7 +782,7 @@ AchieveDisplay (u64 task) {
 			params.lineOrigin  = position;
 			params.textCurrent = position;
 			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%d", personalAchivement.value ().front ().rank);
+			DrawTextFmt (&params, 0x28, "%d", personalAchievement->rank);
 		}
 	} else {
 		GetComposition (&comp, my_id);
@@ -811,8 +820,7 @@ AchieveDestroy (u64 task) {
 	delete leaderboardManager;
 	leaderboardManager = nullptr;
 
-	delete leaderboardManager;
-	personalLeaderboardManager = nullptr;
+	personalAchievement = {};
 
 	RankingStop ();
 
@@ -841,9 +849,6 @@ SurvivalLoop (u64 task) {
 		leaderboardManager = new LeaderboardDownloadManager ();
 		leaderboardManager->DownloadSurvivalScores (selectedCourse, filter, false);
 
-		personalLeaderboardManager = new LeaderboardDownloadManager ();
-		personalLeaderboardManager->DownloadSurvivalScores (selectedCourse, 1, true);
-
 		RankingLoadBase ("survival");
 
 		lastFilter = filter;
@@ -868,6 +873,16 @@ SurvivalLoop (u64 task) {
 			} else if (scores.has_value ()) {
 				waiting = false;
 				RankingLoaded ("survival", scores.value ());
+
+				SteamNetworkingIdentity id;
+				SteamNetworkingSockets ()->GetIdentity (&id);
+				auto selfId = id.GetSteamID ().ConvertToUint64 ();
+				for (auto &score: scores.value ()) {
+					if (score.playerId == selfId) {
+						personalScore = score;
+						break;
+					}
+				}
 			}
 		}
 
@@ -879,8 +894,7 @@ SurvivalLoop (u64 task) {
 		delete leaderboardManager;
 		leaderboardManager = nullptr;
 
-		delete leaderboardManager;
-		personalLeaderboardManager = nullptr;
+		personalScore = {};
 
 		RankingReload ("survival");
 		StopAet (&load_id);
@@ -945,7 +959,7 @@ SurvivalDisplay (u64 task) {
 		}
 	}
 
-	if (personalLeaderboardManager != nullptr && personalLeaderboardManager->GetScores ().has_value () && personalLeaderboardManager->GetScores ().value ().size () == 1) {
+	if (personalScore.has_value()) {
 		StopAet (&my_none_id);
 
 		GetComposition (&comp, my_id);
@@ -955,7 +969,7 @@ SurvivalDisplay (u64 task) {
 			params.lineOrigin  = position;
 			params.textCurrent = position;
 			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%07d", personalLeaderboardManager->GetScores ().value ().front ().score);
+			DrawTextFmt (&params, 0x28, "%07d", personalScore->score);
 		}
 
 		if (auto layout = comp.find (string ("p_survival_my_grade01_c"))) {
@@ -963,7 +977,7 @@ SurvivalDisplay (u64 task) {
 			params.lineOrigin  = position;
 			params.textCurrent = position;
 			params.colour[3]   = layout.value ()->opacity * 0xFF;
-			DrawTextFmt (&params, 0x28, "%d", personalLeaderboardManager->GetScores ().value ().front ().rank);
+			DrawTextFmt (&params, 0x28, "%d", personalScore->rank);
 		}
 	} else {
 		GetComposition (&comp, my_id);

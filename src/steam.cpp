@@ -54,13 +54,12 @@ LeaderboardDownloadManager::ScoreManager::DownloadLeaderboardCallback (Leaderboa
 	for (; i < this->scores.size (); i++)
 		if (this->scores[i].playerName.size () == 0) break;
 
-	if (i == this->scores.size ()) this->state = 2;
+	if (i >= this->scores.size ()) this->state = 2;
 	else this->state = -1;
 }
 
 void
 LeaderboardDownloadManager::ScoreManager::OnPersonaStateChange (PersonaStateChange_t *ret) {
-	if (this->scores.size () == 0) return;
 	for (u64 i = 0; i < this->scores.size (); i++) {
 		if (this->scores[i].playerId != ret->m_ulSteamID) continue;
 		this->scores[i].playerName = std::string (SteamFriends ()->GetFriendPersonaName (ret->m_ulSteamID));
@@ -71,7 +70,7 @@ LeaderboardDownloadManager::ScoreManager::OnPersonaStateChange (PersonaStateChan
 	for (; i < scores.size (); i++)
 		if (this->scores[i].playerName.size () == 0) break;
 
-	if (i == this->scores.size ()) this->state = 2;
+	if (i >= this->scores.size ()) this->state = 2;
 	else this->state = -1;
 }
 
@@ -128,13 +127,12 @@ LeaderboardDownloadManager::AchievementManager::DownloadLeaderboardCallback (Lea
 	for (; i < this->achievements.size (); i++)
 		if (this->achievements[i].playerName.size () == 0) break;
 
-	if (i == this->achievements.size ()) this->state = 2;
+	if (i >= this->achievements.size ()) this->state = 2;
 	else this->state = -1;
 }
 
 void
 LeaderboardDownloadManager::AchievementManager::OnPersonaStateChange (PersonaStateChange_t *ret) {
-	if (this->achievements.size () == 0) return;
 	for (u64 i = 0; i < this->achievements.size (); i++) {
 		if (this->achievements[i].playerId != ret->m_ulSteamID) continue;
 		this->achievements[i].playerName = std::string (SteamFriends ()->GetFriendPersonaName (ret->m_ulSteamID));
@@ -145,7 +143,7 @@ LeaderboardDownloadManager::AchievementManager::OnPersonaStateChange (PersonaSta
 	for (; i < achievements.size (); i++)
 		if (this->achievements[i].playerName.size () == 0) break;
 
-	if (i == this->achievements.size ()) this->state = 2;
+	if (i >= this->achievements.size ()) this->state = 2;
 	else this->state = -1;
 }
 
