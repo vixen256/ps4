@@ -218,7 +218,7 @@ init () {
 	INSTALL_HOOK (GetBgmIndexCsResult3);
 	INSTALL_HOOK (GetBgmIndexCsResult4);
 
-	// Turn on FT mode 1.00 Samyuu, 1.03 BroGamer
+	// Turn on FT mode 1.00 Samyuu, 1.03 Vixen
 	WRITE_MEMORY (0x1414AB9E3, u8, 1);
 
 	// Stop returning to ADV from main menu
@@ -321,6 +321,7 @@ preInit () {
 __declspec (dllexport) void
 D3DInit (IDXGISwapChain *SwapChain, ID3D11Device *Device, ID3D11DeviceContext *DeviceContext) {
 	pvGame::D3DInit (SwapChain, Device, DeviceContext);
+	gamma::D3DInit (SwapChain, Device, DeviceContext);
 }
 
 __declspec (dllexport) void
